@@ -1,0 +1,30 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35527.113
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{7DBAE96B-8A35-4FF8-A965-B63A7FB6375F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GMO.OpenTelemetry", "GMO.OpenTelemetry\GMO.OpenTelemetry.csproj", "{CF07B46B-A0F9-47FC-9A58-8F3E2197C174}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GMO.OpenTelemetry.Serilog", "GMO.OpenTelemetry.Serilog\GMO.OpenTelemetry.Serilog.csproj", "{48B69333-C99B-4B03-8C32-86B88E628AE6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CF07B46B-A0F9-47FC-9A58-8F3E2197C174}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CF07B46B-A0F9-47FC-9A58-8F3E2197C174}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CF07B46B-A0F9-47FC-9A58-8F3E2197C174}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CF07B46B-A0F9-47FC-9A58-8F3E2197C174}.Release|Any CPU.Build.0 = Release|Any CPU
+		{48B69333-C99B-4B03-8C32-86B88E628AE6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{48B69333-C99B-4B03-8C32-86B88E628AE6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{48B69333-C99B-4B03-8C32-86B88E628AE6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{48B69333-C99B-4B03-8C32-86B88E628AE6}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

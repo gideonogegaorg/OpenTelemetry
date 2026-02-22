@@ -1,0 +1,6 @@
+# Automatically normalize line endings to LF in the repository
+* text=auto
+
+# Force specific line endings for certain file types
+*.cs text eol=lf
+*.md text eol=lf

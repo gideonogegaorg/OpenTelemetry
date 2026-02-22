@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Set version
+        id: setversion
+        run: |
+          YEAR=$(date +%Y)
+          MONTH=$(date +%m)
+          RUN_ID=${{ github.run_id }}
+          BUILD=$(( RUN_ID % 65535 ))
+          REVISION=$(( (RUN_ID / 65535) % 65535 ))
+          ASSEMBLY_VERSION="$YEAR.$MONTH.$BUILD.$REVISION"
+          if [ "${{ github.ref_name }}" = "dev" ]; then
+            DLL_VERSION="DEV-$(date +%Y%m)$RUN_ID"
+          else
+            DLL_VERSION="$(date +%Y%m)$RUN_ID"
+          fi
+          echo "ASSEMBLY_VERSION=$ASSEMBLY_VERSION" >> $GITHUB_ENV
+          echo "DLL_VERSION=$DLL_VERSION" >> $GITHUB_ENV
+          echo "assembly_version=$ASSEMBLY_VERSION" >> $GITHUB_OUTPUT
+          echo "dll_version=$DLL_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Restore
+        run: dotnet restore src/GMO.OpenTelemetry.sln
+
+      - name: Build
+        run: |
+          dotnet build src/GMO.OpenTelemetry.sln -c Release --no-restore \
+            -p:Version=${{ env.ASSEMBLY_VERSION }} \
+            -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }} \
+            -p:FileVersion=${{ env.ASSEMBLY_VERSION }} \
+            -p:InformationalVersion=${{ env.DLL_VERSION }}
+
+      - name: Create and push tag
+        if: github.event_name == 'push'
+        run: |
+          TAG_NAME="${{ github.ref_name }}-$(date +%Y)-$(date +%m)-${{ github.run_id }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG_NAME"
+          git push origin "$TAG_NAME"
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Install dotnet-format
+        run: dotnet tool install -g dotnet-format
+
+      - name: Verify format
+        run: dotnet format src/GMO.OpenTelemetry.sln --verify-no-changes

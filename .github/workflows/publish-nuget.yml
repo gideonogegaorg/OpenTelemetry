@@ -1,0 +1,78 @@
+name: Publish NuGet
+
+on:
+  push:
+    tags: ["v*"]
+    branches: [dev]
+
+jobs:
+  publish-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Set package version
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Pack
+        run: dotnet pack src/GMO.OpenTelemetry.sln -c Release -o nupkgs /p:PackageVersion=${{ steps.version.outputs.version }}
+
+      - name: Push to GitHub Packages
+        run: |
+          for pkg in nupkgs/*.nupkg; do
+            dotnet nuget push "$pkg" --api-key "${{ secrets.GH_CLASSIC_PAT }}" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+          done
+
+  publish-alpha:
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Set version
+        id: setversion
+        run: |
+          YEAR=$(date +%Y)
+          MONTH=$(date +%m)
+          RUN_ID=${{ github.run_id }}
+          BUILD=$(( RUN_ID % 65535 ))
+          REVISION=$(( (RUN_ID / 65535) % 65535 ))
+          ASSEMBLY_VERSION="$YEAR.$MONTH.$BUILD.$REVISION"
+          DLL_VERSION="DEV-$(date +%Y%m)$RUN_ID"
+          PACKAGE_VERSION="${ASSEMBLY_VERSION}-alpha"
+          echo "ASSEMBLY_VERSION=$ASSEMBLY_VERSION" >> $GITHUB_ENV
+          echo "DLL_VERSION=$DLL_VERSION" >> $GITHUB_ENV
+          echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Pack
+        run: |
+          dotnet pack src/GMO.OpenTelemetry.sln -c Release -o nupkgs \
+            -p:PackageVersion=${{ steps.setversion.outputs.package_version }} \
+            -p:Version=${{ env.ASSEMBLY_VERSION }} \
+            -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }} \
+            -p:FileVersion=${{ env.ASSEMBLY_VERSION }} \
+            -p:InformationalVersion=${{ env.DLL_VERSION }}
+
+      - name: Push to GitHub Packages
+        run: |
+          for pkg in nupkgs/*.nupkg; do
+            dotnet nuget push "$pkg" --api-key "${{ secrets.GH_CLASSIC_PAT }}" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+          done
