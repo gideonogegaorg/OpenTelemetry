@@ -81,12 +81,13 @@ dotnet pack src/GMO.OpenTelemetry.sln -c Release -o nupkgs /p:PackageVersion=1.0
 
 ## CI/CD Pipeline
 
-GitHub Actions (`.github/workflows/`) runs:
+GitHub Actions (`.github/workflows/ci.yml`) on push or PR to `main` or `dev`. Order: **lint → build → test → tag (if successful) → publish**.
 
-1. **CI** (on push/PR to `main` or `dev`): restore, build with version set from run (year.month.build.revision; `dev` uses a DEV- prefixed informational version), and `dotnet format --verify-no-changes` (lint).
-2. **Publish NuGet**  
-   - **Release**: on push of tag `v*` (e.g. `v1.0.0`), packs and pushes to GitHub Packages. Package version is the tag without the `v` prefix.  
-   - **Alpha**: on push to `dev`, packs with version `{year}.{month}.{build}.{revision}-alpha` and pushes to GitHub Packages. Requires `GH_CLASSIC_PAT` secret.
+1. **Lint**: `dotnet format --verify-no-changes`
+2. **Build**: restore, build with version from run (year.month.build.revision; `dev` uses a DEV- prefixed informational version)
+3. **Test**: `dotnet test` (step passes when no test projects exist yet; add test projects to run tests)
+4. **Tag** (on push only, after test passes): create and push tag `{branch}-{year}-{month}-{run_id}`
+5. **Publish** (on push to main/dev only, after tag): pack and push to GitHub Packages. **main** → version `{year}.{month}.{build}.{revision}`; **dev** → same with `-alpha` suffix. Requires `GH_CLASSIC_PAT` secret.
 
 ## Contributing
 
