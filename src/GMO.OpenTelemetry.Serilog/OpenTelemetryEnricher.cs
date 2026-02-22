@@ -1,4 +1,4 @@
-using Serilog.Core;
+﻿using Serilog.Core;
 using Serilog.Events;
 
 namespace GMO.OpenTelemetry.Serilog

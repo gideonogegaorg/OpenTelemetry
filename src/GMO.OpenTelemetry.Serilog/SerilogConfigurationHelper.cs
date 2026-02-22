@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 using Serilog.Events;
