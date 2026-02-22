@@ -39,14 +39,13 @@ jobs:
         run: |
           YEAR=$(date +%Y)
           MONTH=$(date +%m)
-          RUN_ID=${{ github.run_id }}
-          BUILD=$(( RUN_ID % 65535 ))
-          REVISION=$(( (RUN_ID / 65535) % 65535 ))
-          ASSEMBLY_VERSION="$YEAR.$MONTH.$BUILD.$REVISION"
+          DAY=$(date +%d)
+          HMS=$(date +%H%M%S)
+          ASSEMBLY_VERSION="$YEAR.$MONTH.$DAY.$HMS"
           if [ "${{ github.ref_name }}" = "dev" ]; then
-            DLL_VERSION="DEV-$(date +%Y%m)$RUN_ID"
+            DLL_VERSION="DEV-$YEAR$MONTH$DAY-$HMS"
           else
-            DLL_VERSION="$(date +%Y%m)$RUN_ID"
+            DLL_VERSION="$YEAR$MONTH$DAY-$HMS"
           fi
           echo "ASSEMBLY_VERSION=$ASSEMBLY_VERSION" >> $GITHUB_ENV
           echo "DLL_VERSION=$DLL_VERSION" >> $GITHUB_ENV
