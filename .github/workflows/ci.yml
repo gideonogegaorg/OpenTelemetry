@@ -40,12 +40,12 @@ jobs:
           YEAR=$(date +%Y)
           MONTH=$(date +%m)
           DAY=$(date +%d)
-          HMS=$(date +%H%M%S)
-          ASSEMBLY_VERSION="$YEAR.$MONTH.$DAY.$HMS"
+          HHMM=$(date +%H%M)
+          ASSEMBLY_VERSION="$YEAR.$MONTH.$DAY.$HHMM"
           if [ "${{ github.ref_name }}" = "dev" ]; then
-            DLL_VERSION="DEV-$YEAR$MONTH$DAY-$HMS"
+            DLL_VERSION="DEV-$YEAR$MONTH$DAY-$HHMM"
           else
-            DLL_VERSION="$YEAR$MONTH$DAY-$HMS"
+            DLL_VERSION="$YEAR$MONTH$DAY-$HHMM"
           fi
           echo "ASSEMBLY_VERSION=$ASSEMBLY_VERSION" >> $GITHUB_ENV
           echo "DLL_VERSION=$DLL_VERSION" >> $GITHUB_ENV
