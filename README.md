@@ -30,7 +30,7 @@ This repository contains two NuGet packages:
 Clone, format, and build:
 
 ```bash
-git clone https://github.com/gideonogega/OpenTelemetry.git
+git clone https://github.com/gideonogegaorg/OpenTelemetry.git
 cd OpenTelemetry
 dotnet format src/GMO.OpenTelemetry.sln
 dotnet restore src/GMO.OpenTelemetry.sln
@@ -41,7 +41,7 @@ dotnet build src/GMO.OpenTelemetry.sln -c Release
 
 Packages are published to **GitHub Packages**. The feed requires authentication to read (username + Personal Access Token). Prefer **environment variables** for the PAT so credentials are never stored in `nuget.config` or any file that might be committed to a repo.
 
-**Terms:** `{REPO_OWNER}` = the GitHub user or org that owns the feed (e.g. `gideonogega`) (where the packages are published).
+**Terms:** `{REPO_OWNER}` = the GitHub user or org that owns the feed (e.g. `gideonogegaorg`) (where the packages are published).
 
 1. **Create a PAT (Personal Access Token)**  
    GitHub → Settings → Developer settings → Personal access tokens → [Tokens (classic)](https://github.com/settings/tokens). Create a token with scope **`read:packages`** (and optionally `repo` if the packages are in a private repo).
