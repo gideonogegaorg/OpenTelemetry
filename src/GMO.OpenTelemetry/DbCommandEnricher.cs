@@ -82,7 +82,6 @@ namespace GMO.OpenTelemetry
         // preserve position); mixed -> unnamed keyed "$N" by 1-based position so none overwrite each other.
         private static object BuildParameters(DbParameterCollection parameters, out bool hasValue)
         {
-            hasValue = false;
             var all = new List<DbParameter>(parameters.Count);
             var anyNamed = false;
             var anyUnnamed = false;
@@ -95,19 +94,28 @@ namespace GMO.OpenTelemetry
                     anyNamed = true;
             }
 
-            if (anyUnnamed && !anyNamed)
-            {
-                var values = new List<object?>(all.Count);
-                foreach (var p in all)
-                {
-                    var converted = TryConvert(p.Value, out var value);
-                    hasValue |= converted;
-                    values.Add(converted ? value : null);
-                }
+            return anyUnnamed && !anyNamed
+                ? BuildPositionalParameters(all, out hasValue)
+                : BuildNamedParameters(all, out hasValue);
+        }
 
-                return values;
+        private static List<object?> BuildPositionalParameters(List<DbParameter> all, out bool hasValue)
+        {
+            hasValue = false;
+            var values = new List<object?>(all.Count);
+            foreach (var p in all)
+            {
+                var converted = TryConvert(p.Value, out var value);
+                hasValue |= converted;
+                values.Add(converted ? value : null);
             }
 
+            return values;
+        }
+
+        private static Dictionary<string, object> BuildNamedParameters(List<DbParameter> all, out bool hasValue)
+        {
+            hasValue = false;
             var prms = new Dictionary<string, object>();
             for (var i = 0; i < all.Count; i++)
             {

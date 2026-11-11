@@ -28,19 +28,23 @@ namespace GMO.OpenTelemetry
             "Telemetry export problem from {TelemetrySource} {TelemetryEvent}: {TelemetryDetail} ({TelemetrySuppressed} similar suppressed)";
 
         internal static readonly string[] SourceNames =
-        {
+        [
             "OpenTelemetry-Sdk",
             "OpenTelemetry-Exporter-OpenTelemetryProtocol",
             GmoTelemetryEventSource.SourceName,
-        };
+        ];
 
         internal static readonly TimeSpan ReportInterval = TimeSpan.FromMinutes(1);
 
         // SelfLog keys come from message text, which can vary without bound.
         internal const int MaxWindows = 512;
 
-        private static readonly object StartLock = new object();
-        private static readonly ConcurrentDictionary<string, Window> Windows = new ConcurrentDictionary<string, Window>();
+#if NET9_0_OR_GREATER
+        private static readonly System.Threading.Lock StartLock = new();
+#else
+        private static readonly object StartLock = new();
+#endif
+        private static readonly ConcurrentDictionary<string, Window> Windows = new();
         private static DiagnosticsListener? _listener;
 
         [ThreadStatic]
@@ -49,15 +53,15 @@ namespace GMO.OpenTelemetry
         internal static Action<TelemetryProblem>? Writer { get; set; }
         internal static Func<DateTime> UtcNow { get; set; } = () => DateTime.UtcNow;
 
-        internal static int TrackedWindows => Windows.Count;
+        // Keys are "source|event|key".
+        internal static int TrackedWindowsWhere(Func<string, bool> key) => Windows.Keys.Count(key);
 
         /// <summary>Starts listening. Safe to call more than once.</summary>
         public static void Start()
         {
             lock (StartLock)
             {
-                if (_listener == null)
-                    _listener = new DiagnosticsListener(SourceNames);
+                _listener ??= new DiagnosticsListener(SourceNames);
             }
         }
 
@@ -79,13 +83,13 @@ namespace GMO.OpenTelemetry
 #if NET
             var stamp = body.AsSpan(0, Math.Max(0, space));
 #else
-            var stamp = space > 0 ? body.Substring(0, space) : string.Empty;
+            var stamp = space > 0 ? body[..space] : string.Empty;
 #endif
             if (space > 0 && DateTime.TryParse(stamp, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _))
-                body = body.Substring(space + 1);
+                body = body[(space + 1)..];
 
             if (Writer != null)
-                Report("Serilog", "SelfLog", body.Length > 120 ? body.Substring(0, 120) : body, isError: false, body);
+                Report("Serilog", "SelfLog", body.Length > 120 ? body[..120] : body, isError: false, body);
         }
 
         internal static void Report(string source, string eventName, string key, bool isError, string detail)
@@ -166,13 +170,13 @@ namespace GMO.OpenTelemetry
             if (e.Payload == null || e.Payload.Count == 0 || e.Payload[0] is not string first)
                 return id;
 
-            var name = first.Length > 120 ? first.Substring(0, 120) : first;
+            var name = first.Length > 120 ? first[..120] : first;
             return id + "|" + name;
         }
 
         internal static string Describe(EventWrittenEventArgs e)
         {
-            var payload = e.Payload?.ToArray() ?? Array.Empty<object?>();
+            var payload = e.Payload?.ToArray() ?? [];
             if (!string.IsNullOrEmpty(e.Message))
             {
                 try
@@ -211,26 +215,18 @@ namespace GMO.OpenTelemetry
             }
         }
 
-        private readonly struct Window
+        private readonly struct Window(DateTime started, int suppressed, bool opened, int previouslySuppressed)
         {
-            public Window(DateTime started, int suppressed, bool opened, int previouslySuppressed)
-            {
-                Started = started;
-                Suppressed = suppressed;
-                Opened = opened;
-                PreviouslySuppressed = previouslySuppressed;
-            }
-
-            public DateTime Started { get; }
-            public int Suppressed { get; }
-            public bool Opened { get; }
-            public int PreviouslySuppressed { get; }
+            public DateTime Started { get; } = started;
+            public int Suppressed { get; } = suppressed;
+            public bool Opened { get; } = opened;
+            public int PreviouslySuppressed { get; } = previouslySuppressed;
         }
 
         internal sealed class DiagnosticsListener : EventListener
         {
             private readonly HashSet<string> _names;
-            private readonly List<EventSource> _pending = new List<EventSource>();
+            private readonly List<EventSource> _pending = [];
 
             internal DiagnosticsListener(IEnumerable<string> names)
             {
@@ -282,22 +278,13 @@ namespace GMO.OpenTelemetry
     }
 
     /// <summary>One rate-limited telemetry problem, ready for a logging framework to write.</summary>
-    internal sealed class TelemetryProblem
+    internal sealed class TelemetryProblem(string source, string eventName, string detail, bool isError, int suppressed)
     {
-        public TelemetryProblem(string source, string eventName, string detail, bool isError, int suppressed)
-        {
-            Source = source;
-            EventName = eventName;
-            Detail = detail;
-            IsError = isError;
-            Suppressed = suppressed;
-        }
-
-        public string Source { get; }
-        public string EventName { get; }
-        public string Detail { get; }
-        public bool IsError { get; }
-        public int Suppressed { get; }
+        public string Source { get; } = source;
+        public string EventName { get; } = eventName;
+        public string Detail { get; } = detail;
+        public bool IsError { get; } = isError;
+        public int Suppressed { get; } = suppressed;
 
         public override string ToString() =>
             $"Telemetry export problem from {Source} {EventName}: {Detail} ({Suppressed} similar suppressed)";

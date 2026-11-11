@@ -26,7 +26,7 @@ namespace GMO.OpenTelemetry
                 using (var gzipStream = new GZipStream(compressedStream, CompressionLevel.Fastest, leaveOpen: true))
                 {
 #if NETFRAMEWORK
-                    await gzipStream.WriteAsync(raw, 0, raw.Length).ConfigureAwait(false);
+                    await gzipStream.WriteAsync(raw, 0, raw.Length, cancellationToken).ConfigureAwait(false);
 #else
                     await gzipStream.WriteAsync(raw, cancellationToken).ConfigureAwait(false);
 #endif

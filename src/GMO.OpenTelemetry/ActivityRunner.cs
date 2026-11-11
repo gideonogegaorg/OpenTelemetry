@@ -60,7 +60,7 @@ namespace GMO.OpenTelemetry
         /// affect this runner.
         /// </remarks>
         public ActivityRunner WithDefaults(ActivityOptions? defaults) =>
-            new ActivityRunner(ActivitySource, _log, defaults == null ? null : Snapshot(defaults));
+            new(ActivitySource, _log, defaults == null ? null : Snapshot(defaults));
 
         /// <summary>The bound source. Every span this runner starts comes from it.</summary>
         public ActivitySource ActivitySource { get; }
@@ -108,7 +108,7 @@ namespace GMO.OpenTelemetry
         /// pass <c>MarkSuccessOnDispose = false</c> and call <see cref="ActivityWrapper.MarkSucceeded"/>.
         /// </remarks>
         public ActivityWrapper Begin(string operationName, ActivityOptions? overrides = null) =>
-            new ActivityWrapper(operationName, ActivitySource, Merge(overrides));
+            new(operationName, ActivitySource, Merge(overrides));
 
         /// <summary>
         /// Starts a root span the caller owns and disposes - the bound replacement for
@@ -116,7 +116,7 @@ namespace GMO.OpenTelemetry
         /// <see cref="Begin"/>.
         /// </summary>
         public RootActivityWrapper BeginRoot(string operationName, ActivityOptions? overrides = null) =>
-            new RootActivityWrapper(operationName, ActivitySource, Merge(overrides));
+            new(operationName, ActivitySource, Merge(overrides));
 
         /// <summary>Runs <paramref name="action"/> inside a child span. See <see cref="ActivityExecutor"/>.</summary>
         public Task<T> ExecuteAsync<T>(string operationName, Func<ActivityWrapper, Task<T>> action, ActivityOptions? overrides = null)
@@ -220,7 +220,7 @@ namespace GMO.OpenTelemetry
         /// happens.
         /// </remarks>
         private static ActivityOptions Copy(ActivityOptions from, IActivityLogger? log) =>
-            new ActivityOptions
+            new()
             {
                 ForceNewDetachedRoot = from.ForceNewDetachedRoot,
                 Log = log,
@@ -247,7 +247,7 @@ namespace GMO.OpenTelemetry
                 copy.AdditionalData = new Dictionary<string, object>(from.AdditionalData);
 
             if (from.Links != null)
-                copy.Links = new List<ActivityLink>(from.Links);
+                copy.Links = [.. from.Links];
 
             return copy;
         }

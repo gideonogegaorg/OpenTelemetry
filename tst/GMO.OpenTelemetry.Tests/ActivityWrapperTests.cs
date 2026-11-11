@@ -11,10 +11,10 @@ namespace GMO.OpenTelemetry.Tests
 {
     public class ActivityWrapperTests : IDisposable
     {
-        private static readonly int[] SampleIds = { 1, 2, 3 };
-        private static readonly int[] DuplicateIds = { 1, 2, 2, 3, 1 };
-        private static readonly int[] UnorderedDuplicateIds = { 3, 1, 3, 2, 1 };
-        private static readonly string[] DuplicateKeys = { "a", "b", "a" };
+        private static readonly int[] SampleIds = [1, 2, 3];
+        private static readonly int[] DuplicateIds = [1, 2, 2, 3, 1];
+        private static readonly int[] UnorderedDuplicateIds = [3, 1, 3, 2, 1];
+        private static readonly string[] DuplicateKeys = ["a", "b", "a"];
 
         private readonly ActivitySource _source;
         private readonly ActivityListener _listener;
@@ -439,7 +439,7 @@ namespace GMO.OpenTelemetry.Tests
         public void SetListTags_ComplexElements_SerializesElementsRatherThanToString()
         {
             using var wrapper = new ActivityWrapper("MyOp", _source);
-            wrapper.SetListTags(new[] { new { Name = "a" }, new { Name = "b" } }, "items");
+            wrapper.SetListTags([new { Name = "a" }, new { Name = "b" }], "items");
 
             Assert.Equal(2, wrapper.Activity?.GetTagItem("itemsCount"));
             var items = Assert.IsType<string>(wrapper.Activity?.GetTagItem("items"));
@@ -487,7 +487,7 @@ namespace GMO.OpenTelemetry.Tests
         {
             var id = Guid.NewGuid();
             using var wrapper = new ActivityWrapper("MyOp", _source);
-            wrapper.SetListTags(new[] { id, Guid.NewGuid(), id }, "userIds");
+            wrapper.SetListTags([id, Guid.NewGuid(), id], "userIds");
 
             Assert.Equal(2, wrapper.Activity?.GetTagItem("userIdsCount"));
         }
@@ -508,7 +508,7 @@ namespace GMO.OpenTelemetry.Tests
         {
             var one = new StringBuilder("a");
             using var wrapper = new ActivityWrapper("MyOp", _source);
-            wrapper.SetListTags(new[] { one, one, new StringBuilder("b") }, "items");
+            wrapper.SetListTags([one, one, new StringBuilder("b")], "items");
 
             Assert.Equal(3, wrapper.Activity?.GetTagItem("itemsCount"));
         }

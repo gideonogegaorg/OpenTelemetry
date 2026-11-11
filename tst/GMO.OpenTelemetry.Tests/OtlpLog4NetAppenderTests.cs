@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using GMO.OpenTelemetry.Log4Net;
 using log4net.Core;
 using Microsoft.Extensions.Logging;
@@ -37,7 +38,7 @@ namespace GMO.OpenTelemetry.Tests
             _enricher = new Mock<IAttributeEnricher>();
             // Fresh instance per call, as the real AttributeEnricher does; a shared dictionary would
             // let one chunk's attributes bleed into the next.
-            _enricher.Setup(e => e.Enrich(null)).Returns(() => new Dictionary<string, object>());
+            _enricher.Setup(e => e.Enrich(null)).Returns(() => []);
 
             _options = new Mock<IOpenTelemetryOptions>();
             _options.Setup(o => o.Enabled).Returns(true);
@@ -1040,7 +1041,7 @@ namespace GMO.OpenTelemetry.Tests
 
         private sealed class RecordingErrorHandler : log4net.Core.IErrorHandler
         {
-            public List<string> Messages { get; } = new List<string>();
+            public List<string> Messages { get; } = [];
 
             public void Error(string message, Exception? e, ErrorCode errorCode) => Messages.Add(message);
 
@@ -1065,6 +1066,7 @@ namespace GMO.OpenTelemetry.Tests
 
         private sealed class BlankRendering
         {
+            [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "The appender reads instance properties by reflection; a static one would not be serialized.")]
             public int Id => 7;
 
             public override string ToString() => string.Empty;
@@ -1072,7 +1074,8 @@ namespace GMO.OpenTelemetry.Tests
 
         private sealed class ShortRenderingLargeBody
         {
-            public string Body => new string('b', 400);
+            [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "The appender reads instance properties by reflection; a static one would not be serialized.")]
+            public string Body => new('b', 400);
 
             public override string ToString() => "short";
         }
@@ -1089,6 +1092,7 @@ namespace GMO.OpenTelemetry.Tests
 
         private sealed class ThrowingEverywhere
         {
+            [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "The appender reads instance properties by reflection; a static one would not be serialized.")]
             public string Value => throw new InvalidOperationException("getter");
 
             public override string ToString() => throw new InvalidOperationException("ToString");
@@ -1096,16 +1100,20 @@ namespace GMO.OpenTelemetry.Tests
 
         private sealed class LooselyTypedHolder
         {
+            [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "The appender reads instance properties by reflection; a static one would not be serialized.")]
             public string Label => "x";
 
+            [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "The appender reads instance properties by reflection; a static one would not be serialized.")]
             public object Item => new FakeEntity();
         }
 
         private sealed class CollectionHolder
         {
+            [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "The appender reads instance properties by reflection; a static one would not be serialized.")]
             public List<FakeEntity> Entities => throw new InvalidOperationException("getter invoked");
 
-            public List<string> Tags => new List<string> { "a" };
+            [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "The appender reads instance properties by reflection; a static one would not be serialized.")]
+            public List<string> Tags => ["a"];
         }
     }
 
@@ -1114,18 +1122,18 @@ namespace GMO.OpenTelemetry.Tests
         public Dictionary<string, object>? State { get; set; }
     }
 
-    internal sealed class CapturingLoggerProvider : Microsoft.Extensions.Logging.ILoggerProvider
+    internal sealed class CapturingLoggerProvider(List<string> messages) : Microsoft.Extensions.Logging.ILoggerProvider
     {
-        private readonly List<string> _messages;
-        public CapturingLoggerProvider(List<string> messages) => _messages = messages;
+        private readonly List<string> _messages = messages;
+
         public Microsoft.Extensions.Logging.ILogger CreateLogger(string categoryName) => new CapturingLogger(_messages);
         public void Dispose() { }
     }
 
-    internal sealed class CapturingLogger : Microsoft.Extensions.Logging.ILogger
+    internal sealed class CapturingLogger(List<string> messages) : Microsoft.Extensions.Logging.ILogger
     {
-        private readonly List<string> _messages;
-        public CapturingLogger(List<string> messages) => _messages = messages;
+        private readonly List<string> _messages = messages;
+
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
         public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
 
@@ -1149,12 +1157,14 @@ namespace GMO.OpenTelemetry.Tests
 
     internal sealed class FakeEntity : IEntityWithRelationships
     {
+        [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "The appender reads instance properties by reflection; a static one would not be serialized.")]
         public string Name => throw new InvalidOperationException("getter invoked");
     }
 
     internal sealed class EntityHolder
     {
         public string Label { get; set; } = "x";
+        [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "The appender reads instance properties by reflection; a static one would not be serialized.")]
         public FakeEntity Entity => throw new InvalidOperationException("getter invoked");
     }
 

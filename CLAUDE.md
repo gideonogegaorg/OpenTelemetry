@@ -42,6 +42,10 @@ net48 builds/runs on Linux only with `mono-complete` installed (as CI does). See
 - **Multi-targeting:** guard platform-specific code with `#if NETFRAMEWORK` / `#if NET`. net48 is
   HttpProtobuf-only on `:4318`; `Otlp:Protocol` is ignored there. `GMO.OpenTelemetry.Npgsql` has no
   net48 target, so the test project references it only off net48 and its tests are `#if !NETFRAMEWORK`.
+- **C# `LangVersion` is `latest` on every TFM, net48 included**; PolySharp generates internal polyfills
+  (Index/Range, nullable attributes). No runtime-dependent features (default interface or static abstract
+  members). net48's BCL lacks `[NotNullWhen]`, so use `Strings.IsNullOrEmpty`/`IsNullOrWhiteSpace` where
+  null-state matters; `System.Threading.Lock` only under `#if NET9_0_OR_GREATER`.
 - **Prefer `ActivityExecutor` / `ActivityRunner`** over hand-rolled `ActivityWrapper`: they record
   exceptions and only mark success when the delegate returns. Do **not** add your own
   `catch { wrapper.RecordException(ex); }` — that appends a duplicate `exception` event. A hand-rolled
@@ -52,6 +56,13 @@ net48 builds/runs on Linux only with `mono-complete` installed (as CI does). See
 - **`ObjectRenderer`** depth is process-wide state; a test that changes it must use the non-parallel
   `RendererDepthState` collection. It is deliberately EF-safe (skips `IQueryable`/EF/LINQ-to-SQL
   navigations) — don't remove those guards.
+- **Diagnostics tests share process-wide state.** Non-parallel collections run after parallel ones, but
+  exporters and sinks left running by earlier tests keep reporting into `TelemetryDiagnostics` (and Serilog
+  `SelfLog` stays enabled), so assert only on reports and windows tagged with the test's own unique source.
+- **Unit tests never reach a real network target.** Point exporters/sinks at the `FakeOtlpReceiver`
+  assembly fixture, give `TruncatingSpanProcessor` a stub handler, and dispose every provider, sink and
+  processor a test builds. A refused `localhost` connection costs ~4 s per flush on Windows (instant on Linux
+  CI), and an undisposed processor keeps posting and reporting into `TelemetryDiagnostics` after its test.
 - **`SelfLog` is owned by the library** (`TelemetryDiagnostics` via `AddOpenTelemetryWithEnricher`);
   hosts must not call `SelfLog.Enable`. log4net hosts call `log.StartTelemetryDiagnostics()`.
 - **Compression / chunking / New Relic limits** have subtle on-the-wire behavior — read
@@ -83,3 +94,7 @@ Packages. net48 runs on the Linux runner via `mono-complete`. See
 3. **TestApps validated** against the local collector — traces, metrics, and logs all arrive for each
    app x framework ([docs/development.md](docs/development.md#validate-against-a-local-collector)).
 4. **Docs and code comments updated** to match the change.
+5. **Zero new SonarCloud issues** on the PR, info level included; a passing quality gate is not enough.
+   Fix before merging. List them with `curl.exe -4 -s "https://sonarcloud.io/api/issues/search?componentKeys=gideonogegaorg_OpenTelemetry&pullRequest=<N>&resolved=false"`.
+   Locally, `dotnet format src/GMO.OpenTelemetry.sln --verify-no-changes --severity info` surfaces the
+   Roslyn ones, but also reports naming (IDE1006) and lambda (IDE0350) suggestions Sonar does not import.

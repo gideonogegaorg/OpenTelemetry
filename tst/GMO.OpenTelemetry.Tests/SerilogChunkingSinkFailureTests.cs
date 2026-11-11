@@ -10,7 +10,8 @@ namespace GMO.OpenTelemetry.Tests
     // Serilog swallows exceptions from WriteTo sinks; AuditTo lets them reach the chunking sink's handlers.
     public class SerilogChunkingSinkFailureTests
     {
-        private static readonly MessageTemplateParser Parser = new MessageTemplateParser();
+        private static readonly MessageTemplateParser Parser = new();
+        private static readonly string[] EmitFailureMessages = ["Error in Emit", "Fallback write failed"];
 
         [Fact]
         public void Emit_WriteFails_ReportsTheErrorAndRetriesTheEvent()
@@ -36,7 +37,7 @@ namespace GMO.OpenTelemetry.Tests
 
             sink.Emit(Saved());
 
-            Assert.Equal(new[] { "Error in Emit", "Fallback write failed" }, inner.Events.Select(e => e.MessageTemplate.Text));
+            Assert.Equal(EmitFailureMessages, inner.Events.Select(e => e.MessageTemplate.Text));
             Assert.All(inner.Events, e => AssertSinkFailure(e.Exception));
         }
 
@@ -48,7 +49,7 @@ namespace GMO.OpenTelemetry.Tests
             using var sink = ChunkingOpenTelemetrySink.WritingTo(options, new LoggerConfiguration().AuditTo.Sink(inner));
 
             sink.Emit(new LogEvent(DateTimeOffset.UtcNow, LogEventLevel.Information, null,
-                Parser.Parse(new string('m', 1500)), Array.Empty<LogEventProperty>()));
+                Parser.Parse(new string('m', 1500)), []));
 
             var chunks = inner.Events.Where(e => ChunkIndex(e) != null).ToList();
             var count = (int)((ScalarValue)chunks[0].Properties["chunk.count"]).Value!;
@@ -81,23 +82,21 @@ namespace GMO.OpenTelemetry.Tests
             Assert.Equal(SelectiveSink.Failure, Assert.IsType<InvalidOperationException>(exception?.GetBaseException()).Message);
 
         private static LogEvent Saved() =>
-            new LogEvent(DateTimeOffset.UtcNow, LogEventLevel.Information, null, Parser.Parse("Saved {Id}"),
-                new[] { new LogEventProperty("Id", new ScalarValue(7)) });
+            new(DateTimeOffset.UtcNow, LogEventLevel.Information, null, Parser.Parse("Saved {Id}"),
+                [new LogEventProperty("Id", new ScalarValue(7))]);
 
         private static bool IsSaved(LogEvent logEvent) => logEvent.MessageTemplate.Text == "Saved {Id}";
 
         private static int? ChunkIndex(LogEvent logEvent) =>
             logEvent.Properties.TryGetValue("chunk.index", out var value) ? (int?)((ScalarValue)value).Value : null;
 
-        private sealed class SelectiveSink : ILogEventSink, IDisposable
+        private sealed class SelectiveSink(Func<LogEvent, bool> fails) : ILogEventSink, IDisposable
         {
             public const string Failure = "sink down";
 
-            private readonly Func<LogEvent, bool> _fails;
+            private readonly Func<LogEvent, bool> _fails = fails;
 
-            public SelectiveSink(Func<LogEvent, bool> fails) => _fails = fails;
-
-            public List<LogEvent> Events { get; } = new List<LogEvent>();
+            public List<LogEvent> Events { get; } = [];
 
             public Exception? DisposeFailure { get; set; }
 

@@ -72,7 +72,7 @@ namespace GMO.OpenTelemetry.Tests
         public void ServiceProvider_NotSet_DefaultsToCollector()
         {
             Assert.Equal(OpenTelemetryServiceProvider.Collector, new TestOptions().ServiceProvider);
-            Assert.Equal(OpenTelemetryServiceProvider.Collector, default(OpenTelemetryServiceProvider));
+            Assert.Equal(OpenTelemetryServiceProvider.Collector, default);
         }
 
         [Fact]
@@ -213,8 +213,10 @@ namespace GMO.OpenTelemetry.Tests
         [Fact]
         public void GetOtlpEndpoint_DefaultsToOtlpEndpoint()
         {
-            var opts = new TestOptions();
-            opts.Otlp = new OtlpSettings { Endpoint = new System.Uri("http://localhost:4317") };
+            var opts = new TestOptions
+            {
+                Otlp = new OtlpSettings { Endpoint = new System.Uri("http://localhost:4317") }
+            };
             Assert.Equal(new System.Uri("http://localhost:4317"), opts.GetOtlpEndpoint());
         }
 #endif

@@ -26,7 +26,11 @@ namespace GMO.OpenTelemetry.Log4Net
         public static ActivityRunner ToActivityRunner(this ILog log, ActivitySource activitySource, Level? logLevel = null)
         {
             // Extension methods do not throw on a null receiver, so this has to be explicit.
+#if NET6_0_OR_GREATER
+            ArgumentNullException.ThrowIfNull(log);
+#else
             if (log == null) throw new ArgumentNullException(nameof(log));
+#endif
 
             return ActivityRunner.For(activitySource, log.ToActivityLogger(logLevel));
         }
@@ -42,7 +46,11 @@ namespace GMO.OpenTelemetry.Log4Net
         /// <returns>A runner bound to <paramref name="activitySource"/> and <paramref name="log"/>.</returns>
         public static ActivityRunner ToActivityRunner(this Func<ILog> log, ActivitySource activitySource, Level? logLevel = null)
         {
+#if NET6_0_OR_GREATER
+            ArgumentNullException.ThrowIfNull(log);
+#else
             if (log == null) throw new ArgumentNullException(nameof(log));
+#endif
 
             return ActivityRunner.For(activitySource, () => log()?.ToActivityLogger(logLevel));
         }

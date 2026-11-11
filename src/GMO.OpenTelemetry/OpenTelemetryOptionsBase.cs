@@ -90,14 +90,14 @@ namespace GMO.OpenTelemetry
         // Records per log export request; see DefaultMaxLogMessageLength for how the two bound its size.
         protected internal const int DefaultLogsMaxBatchSize = 64;
 
-        private static readonly char[] HeaderSeparators = new[] { ';', ',' };
-        private static readonly char[] KvSeparator = new[] { '=' };
+        private static readonly char[] HeaderSeparators = [';', ','];
+        private static readonly char[] KvSeparator = ['='];
 
         public bool Enabled { get; set; } = false;
         public string EnvironmentName { get; set; } = "undefined";
         public string InstanceName { get; set; } = Environment.MachineName;
-        public string[] TraceSourceNames { get; set; } = new[] { "*" };
-        public string[] MeterSourceNames { get; set; } = new[] { "*" };
+        public string[] TraceSourceNames { get; set; } = ["*"];
+        public string[] MeterSourceNames { get; set; } = ["*"];
         public bool EnableSqlInstrumentation { get; set; } = true;
         public bool EnableSqlInstrumentationText { get; set; } = true;
         public bool EnableHttpInstrumentation { get; set; } = true;
@@ -107,8 +107,8 @@ namespace GMO.OpenTelemetry
         public int MaxAttributeValueLength { get; set; } = DefaultMaxAttributeValueLength;
         public int MaxLogMessageLength { get; set; } = DefaultMaxLogMessageLength;
         public bool SendOverflowLogs { get; set; } = true;
-        public HashSet<string> OverflowLogOperations { get; set; } = new HashSet<string>();
-        public HashSet<string> AdditionalKeysToLog { get; set; } = new HashSet<string>();
+        public HashSet<string> OverflowLogOperations { get; set; } = [];
+        public HashSet<string> AdditionalKeysToLog { get; set; } = [];
         public bool EnableConsole { get; set; } = false;
         public bool EnableGzipCompression { get; set; } = true;
 
@@ -116,7 +116,7 @@ namespace GMO.OpenTelemetry
         public bool IncludeThreadInfo { get; set; } = true;
         public bool IncludeUserInfo { get; set; } = true;
 
-        public string[] LogStackExclusions { get; set; } = Array.Empty<string>();
+        public string[] LogStackExclusions { get; set; } = [];
 
         /// <summary>
         /// Object levels written when a value is serialized: span tags and event attributes, and Serilog
@@ -293,10 +293,10 @@ namespace GMO.OpenTelemetry
         {
             // Generic variable only: a credential lookup has no signal to scope to.
             var headers = OtlpEnvironment.ResolveHeaders(GetOtlpHeaders(), OtlpEnvironment.SystemReader);
-            if (string.IsNullOrWhiteSpace(headers))
+            if (Strings.IsNullOrWhiteSpace(headers))
                 return null;
 
-            var pairs = headers!
+            var pairs = headers
                             .Split(HeaderSeparators, StringSplitOptions.RemoveEmptyEntries)
                             .Select(p => p.Trim());
 
@@ -336,7 +336,7 @@ namespace GMO.OpenTelemetry
             const string prefix = "Api-Token ";
             // The caller trims the value, so text after the prefix is never blank.
             if (value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                return value.Substring(prefix.Length).Trim();
+                return value[prefix.Length..].Trim();
 
             return string.IsNullOrEmpty(value) ? null : value;
         }

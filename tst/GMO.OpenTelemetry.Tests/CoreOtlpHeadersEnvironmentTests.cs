@@ -14,12 +14,12 @@ namespace GMO.OpenTelemetry.Tests
     public sealed class CoreOtlpHeadersEnvironmentTests : IDisposable
     {
         private static readonly string[] HeaderVariables =
-        {
+        [
             "OTEL_EXPORTER_OTLP_HEADERS",
             "OTEL_EXPORTER_OTLP_METRICS_HEADERS",
-        };
+        ];
 
-        private readonly Dictionary<string, string?> _saved = new Dictionary<string, string?>();
+        private readonly Dictionary<string, string?> _saved = [];
 
         public CoreOtlpHeadersEnvironmentTests()
         {
@@ -36,7 +36,7 @@ namespace GMO.OpenTelemetry.Tests
                 Environment.SetEnvironmentVariable(pair.Key, pair.Value);
         }
 
-        private static TestOptions MetricsOptions(string? headers) => new TestOptions
+        private static TestOptions MetricsOptions(string? headers) => new()
         {
             Enabled = true,
             HeadersOverride = headers,

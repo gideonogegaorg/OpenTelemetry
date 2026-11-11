@@ -28,7 +28,7 @@ namespace GMO.OpenTelemetry.Tests
 
     internal sealed class TestDbParameterCollection : DbParameterCollection
     {
-        private readonly List<DbParameter> _items = new();
+        private readonly List<DbParameter> _items = [];
 
         public void Add(DbParameter p) => _items.Add(p);
 
@@ -55,7 +55,7 @@ namespace GMO.OpenTelemetry.Tests
 
     internal sealed class TestDbCommand : DbCommand
     {
-        private readonly TestDbParameterCollection _params = new();
+        private readonly TestDbParameterCollection _params = [];
         private DbTransaction? _transaction;
 
         [AllowNull]

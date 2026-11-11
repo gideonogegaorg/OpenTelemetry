@@ -19,9 +19,9 @@ namespace GMO.OpenTelemetry.Tests
     {
         private static readonly bool EventSourceDispatches = Type.GetType("Mono.Runtime") == null;
 
-        private readonly List<TelemetryProblem> _problems = new List<TelemetryProblem>();
+        private readonly List<TelemetryProblem> _problems = [];
         private readonly string _component = "test-" + Guid.NewGuid().ToString("N");
-        private DateTime _now = new DateTime(2026, 10, 22, 12, 0, 0, DateTimeKind.Utc);
+        private DateTime _now = new(2026, 10, 22, 12, 0, 0, DateTimeKind.Utc);
 
         public TelemetryDiagnosticsTests()
         {
@@ -42,8 +42,13 @@ namespace GMO.OpenTelemetry.Tests
         private List<TelemetryProblem> Mine()
         {
             lock (_problems)
-                return _problems.Where(p => p.Detail.Contains(_component)).ToList();
+                return [.. _problems.Where(p => p.Detail.Contains(_component))];
         }
+
+        // Exporters and sinks left running by earlier tests keep reporting into the same table, so counts
+        // cover only the windows this test opened. Its reports use _component as the source or the key.
+        private int MyWindows(string? key = null) =>
+            TelemetryDiagnostics.TrackedWindowsWhere(k => k.Contains(_component) && (key == null || k.Contains(key)));
 
         [Fact]
         public void LibraryWarning_IsReportedAsAWarning()
@@ -135,9 +140,9 @@ namespace GMO.OpenTelemetry.Tests
         public void ManyDistinctProblems_DoNotGrowTheRateLimitTableWithoutBound()
         {
             for (var i = 0; i < TelemetryDiagnostics.MaxWindows * 4; i++)
-                TelemetryDiagnostics.Report("Serilog", "SelfLog", $"failure {i}", isError: false, _component);
+                TelemetryDiagnostics.Report(_component, "SelfLog", $"failure {i}", isError: false, _component);
 
-            Assert.True(TelemetryDiagnostics.TrackedWindows <= TelemetryDiagnostics.MaxWindows + 1);
+            Assert.True(MyWindows() <= TelemetryDiagnostics.MaxWindows + 1);
         }
 
         [Fact]
@@ -173,7 +178,7 @@ namespace GMO.OpenTelemetry.Tests
 
             TelemetryDiagnostics.Report("OpenTelemetry-Sdk", "ExportFailed", "1", isError: true, _component);
 
-            var report = Assert.Single(captured.Events);
+            var report = Assert.Single(captured.Events, e => Equals(Scalar(e, "TelemetryDetail"), _component));
             Assert.Equal(LogEventLevel.Error, report.Level);
             Assert.True(Scalar(report, TelemetryDiagnostics.MarkerProperty) as bool?);
             Assert.Equal("OpenTelemetry-Sdk", Scalar(report, "TelemetrySource"));
@@ -189,7 +194,7 @@ namespace GMO.OpenTelemetry.Tests
 
             global::Serilog.Debugging.SelfLog.WriteLine("Exception while emitting periodic batch from {0}", _component);
 
-            var report = Assert.Single(captured.Events);
+            var report = Assert.Single(captured.Events, e => ((string)Scalar(e, "TelemetryDetail")!).Contains(_component));
             Assert.Equal("Serilog", Scalar(report, "TelemetrySource"));
             Assert.StartsWith("Exception while emitting periodic batch from " + _component, (string)Scalar(report, "TelemetryDetail")!);
         }
@@ -202,35 +207,54 @@ namespace GMO.OpenTelemetry.Tests
             var template = new MessageTemplateParser().Parse("export failing");
 
             sink.Emit(new LogEvent(DateTimeOffset.UtcNow, LogEventLevel.Warning, null, template,
-                new[] { new LogEventProperty(TelemetryDiagnostics.MarkerProperty, new ScalarValue(true)) }));
-            sink.Emit(new LogEvent(DateTimeOffset.UtcNow, LogEventLevel.Warning, null, template, Array.Empty<LogEventProperty>()));
+                [new LogEventProperty(TelemetryDiagnostics.MarkerProperty, new ScalarValue(true))]));
+            sink.Emit(new LogEvent(DateTimeOffset.UtcNow, LogEventLevel.Warning, null, template, []));
 
             Assert.Single(inner.Events);
         }
 
+        // Other windows in the table bring the prune forward, so the test reports live windows until its
+        // expired ones are gone rather than a fixed count. The live ones must survive: a clear would not.
         [Fact]
         public void ExpiredWindows_ArePrunedOnceTheTableIsFull()
         {
-            for (var i = 0; i <= TelemetryDiagnostics.MaxWindows; i++)
-                TelemetryDiagnostics.Report("S", "E", $"old {i}", isError: false, _component);
+            var expired = TelemetryDiagnostics.MaxWindows / 2;
+            for (var i = 0; i < expired; i++)
+                TelemetryDiagnostics.Report(_component, "E", $"old {i}", isError: false, _component);
             _now += TelemetryDiagnostics.ReportInterval;
 
-            TelemetryDiagnostics.Report("S", "E", "old 0", isError: false, _component);
+            var fresh = 0;
+            do
+                TelemetryDiagnostics.Report(_component, "E", $"fresh {fresh++}", isError: false, _component);
+            while (MyWindows("|old ") > 0 && fresh <= TelemetryDiagnostics.MaxWindows);
 
-            Assert.Equal(1, TelemetryDiagnostics.TrackedWindows);
-            Assert.Equal(TelemetryDiagnostics.MaxWindows + 2, Mine().Count);
+            Assert.Equal(0, MyWindows("|old "));
+            Assert.Equal(fresh, MyWindows("|fresh "));
+            Assert.Equal(expired + fresh, Mine().Count);
         }
 
+        // Nothing expires on the fixed clock, so this test's windows only ever leave the table together,
+        // when it is cleared; other windows can bring that forward but never put it off.
         [Fact]
         public void AFullTableOfLiveWindows_IsClearedRatherThanGrown()
         {
-            for (var i = 0; i <= TelemetryDiagnostics.MaxWindows; i++)
-                TelemetryDiagnostics.Report("S", "E", $"live {i}", isError: false, _component);
+            var reports = 0;
+            var held = 0;
+            while (reports <= TelemetryDiagnostics.MaxWindows + 1)
+            {
+                TelemetryDiagnostics.Report(_component, "E", $"live {reports++}", isError: false, _component);
+                var mine = MyWindows();
+                if (mine <= held)
+                    break;
+                held = mine;
+            }
 
-            TelemetryDiagnostics.Report("S", "E", "live 0", isError: false, _component);
+            Assert.True(held <= TelemetryDiagnostics.MaxWindows + 1);
+            Assert.True(MyWindows() <= 1);
 
-            Assert.Equal(1, TelemetryDiagnostics.TrackedWindows);
-            Assert.Equal(TelemetryDiagnostics.MaxWindows + 2, Mine().Count);
+            TelemetryDiagnostics.Report(_component, "E", "live 0", isError: false, _component);
+
+            Assert.Equal(reports + 1, Mine().Count);
         }
 
         [Fact]
@@ -263,7 +287,7 @@ namespace GMO.OpenTelemetry.Tests
             TelemetryDiagnostics.ReportSelfLog(null!);
 
             lock (_problems)
-                Assert.Equal(string.Empty, Assert.Single(_problems, p => p.Source == "Serilog").Detail);
+                Assert.Single(_problems, p => p.Source == "Serilog" && p.Detail.Length == 0);
         }
 
         [Fact]
@@ -273,7 +297,7 @@ namespace GMO.OpenTelemetry.Tests
             var captured = CaptureStandardError(() => TelemetryDiagnostics.ReportSelfLog("sink failed for " + _component));
 
             Assert.Contains("sink failed for " + _component, captured);
-            Assert.Equal(0, TelemetryDiagnostics.TrackedWindows);
+            Assert.Equal(0, MyWindows());
         }
 
         [Fact]
@@ -389,7 +413,7 @@ namespace GMO.OpenTelemetry.Tests
         {
             Assert.SkipUnless(EventSourceDispatches, "Mono EventSource does not dispatch to listeners");
             _ = ProbeEventSource.Log;
-            using var listener = new TelemetryDiagnostics.DiagnosticsListener(new[] { ProbeEventSource.SourceName });
+            using var listener = new TelemetryDiagnostics.DiagnosticsListener([ProbeEventSource.SourceName]);
 
             ProbeEventSource.Log.Named(_component);
 
@@ -405,7 +429,7 @@ namespace GMO.OpenTelemetry.Tests
         {
             Assert.SkipUnless(EventSourceDispatches, "Mono EventSource does not dispatch to listeners");
             _ = ProbeEventSource.Log;
-            using var listener = new TelemetryDiagnostics.DiagnosticsListener(new[] { "GMO-Tests-Other-" + Guid.NewGuid().ToString("N") });
+            using var listener = new TelemetryDiagnostics.DiagnosticsListener(["GMO-Tests-Other-" + Guid.NewGuid().ToString("N")]);
 
             ProbeEventSource.Log.Named(_component);
 
@@ -418,7 +442,7 @@ namespace GMO.OpenTelemetry.Tests
         {
             Assert.SkipUnless(EventSourceDispatches, "Mono EventSource does not dispatch to listeners");
             var name = "GMO-Tests-Late-" + Guid.NewGuid().ToString("N");
-            using var listener = new TelemetryDiagnostics.DiagnosticsListener(new[] { name });
+            using var listener = new TelemetryDiagnostics.DiagnosticsListener([name]);
             using var source = new EventSource(name);
 
             source.Write("LateWarning", new EventSourceOptions { Level = EventLevel.Warning }, new { Component = _component });
@@ -436,7 +460,7 @@ namespace GMO.OpenTelemetry.Tests
             Assert.SkipUnless(EventSourceDispatches, "Mono EventSource does not dispatch to listeners");
             var name = "GMO-Tests-Verbose-" + Guid.NewGuid().ToString("N");
             using var source = new EventSource(name);
-            using var listener = new TelemetryDiagnostics.DiagnosticsListener(new[] { name });
+            using var listener = new TelemetryDiagnostics.DiagnosticsListener([name]);
             using var verbose = new VerboseCapture(name);
 
             source.Write("Informational", new EventSourceOptions { Level = EventLevel.Informational }, new { Component = _component });
@@ -493,7 +517,7 @@ namespace GMO.OpenTelemetry.Tests
             public const int BadFormatId = 3;
             public const int NamedId = 4;
 
-            public static readonly ProbeEventSource Log = new ProbeEventSource();
+            public static readonly ProbeEventSource Log = new();
 
             [Event(EmptyId, Level = EventLevel.Warning)]
             public void Empty() => WriteEvent(EmptyId);
@@ -510,7 +534,7 @@ namespace GMO.OpenTelemetry.Tests
 
         private sealed class ProbeCapture : EventListener
         {
-            private readonly List<EventWrittenEventArgs> _events = new List<EventWrittenEventArgs>();
+            private readonly List<EventWrittenEventArgs> _events = [];
 
             public EventWrittenEventArgs Single(int eventId)
             {
@@ -534,9 +558,17 @@ namespace GMO.OpenTelemetry.Tests
 
         private sealed class CapturingSink : ILogEventSink
         {
-            public List<LogEvent> Events { get; } = new List<LogEvent>();
+            private readonly List<LogEvent> _events = [];
 
-            public void Emit(LogEvent logEvent) => Events.Add(logEvent);
+            public List<LogEvent> Events
+            {
+                get { lock (_events) return [.. _events]; }
+            }
+
+            public void Emit(LogEvent logEvent)
+            {
+                lock (_events) _events.Add(logEvent);
+            }
         }
     }
 }

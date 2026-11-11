@@ -6,6 +6,18 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    # 11.x of these drops net8.0/net9.0, which this repo still targets; stay on the newest 10.0.x.
+    ignore:
+      - dependency-name: "Microsoft.Extensions.*"
+        versions: [">= 11.0.0"]
+      - dependency-name: "System.*"
+        versions: [">= 11.0.0"]
+    # Each set ships on one version line with tight cross-package ranges; split PRs fail restore.
+    groups:
+      opentelemetry:
+        patterns: ["OpenTelemetry*"]
+      npgsql:
+        patterns: ["Npgsql", "Npgsql.OpenTelemetry"]
 
   - package-ecosystem: github-actions
     directory: "/"

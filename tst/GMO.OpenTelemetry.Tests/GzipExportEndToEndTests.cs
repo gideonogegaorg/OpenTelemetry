@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics;
 using System.IO.Compression;
 using System.Net;
-using System.Net.Sockets;
 using GMO.OpenTelemetry.Serilog;
 using Microsoft.Extensions.Configuration;
 using OpenTelemetry;
@@ -100,7 +99,7 @@ namespace GMO.OpenTelemetry.Tests
             // Disposing flushes the batch.
             using var sink = new ChunkingOpenTelemetrySink(options, new ConfigurationBuilder().Build());
             sink.Emit(new LogEvent(DateTimeOffset.UtcNow, LogEventLevel.Information, null,
-                new MessageTemplateParser().Parse("gzip e2e log"), Array.Empty<LogEventProperty>()));
+                new MessageTemplateParser().Parse("gzip e2e log"), []));
         }
 
         private static async Task<byte[]> Capture(string? environmentCompression, Action<int> send)
@@ -109,7 +108,7 @@ namespace GMO.OpenTelemetry.Tests
             Environment.SetEnvironmentVariable(CompressionVariable, environmentCompression);
             try
             {
-                var port = FreePort();
+                var port = FakeOtlpReceiver.FreePort();
                 using var listener = new HttpListener();
                 listener.Prefixes.Add($"http://localhost:{port}/");
                 listener.Start();
@@ -154,15 +153,6 @@ namespace GMO.OpenTelemetry.Tests
             }
 
             return layers;
-        }
-
-        private static int FreePort()
-        {
-            var probe = new TcpListener(IPAddress.Loopback, 0);
-            probe.Start();
-            var port = ((IPEndPoint)probe.LocalEndpoint).Port;
-            probe.Stop();
-            return port;
         }
     }
 }

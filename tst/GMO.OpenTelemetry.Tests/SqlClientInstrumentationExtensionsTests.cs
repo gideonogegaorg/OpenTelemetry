@@ -34,7 +34,7 @@ namespace GMO.OpenTelemetry.Tests
         private static void Enrich(Activity? activity, object rawObject) =>
             typeof(SqlClientInstrumentationExtensions)
                 .GetMethod("EnrichWithSqlCommand", BindingFlags.NonPublic | BindingFlags.Static)!
-                .Invoke(null, new[] { activity, rawObject });
+                .Invoke(null, [activity, rawObject]);
 
         [Fact]
         public void AddSqlClientInstrumentationWithEnrichment_NoEnrichment_DoesNotThrow()

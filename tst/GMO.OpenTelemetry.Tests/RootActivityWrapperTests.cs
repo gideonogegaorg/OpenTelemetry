@@ -75,7 +75,7 @@ namespace GMO.OpenTelemetry.Tests
             var link = new ActivityLink(other.Context);
 
             using var wrapper = new RootActivityWrapper("RenamedRoot", _source,
-                new ActivityOptions { ForceNewDetachedRoot = false, Links = new[] { link } });
+                new ActivityOptions { ForceNewDetachedRoot = false, Links = [link] });
 
             Assert.Same(ambient, wrapper.Root);
             Assert.Contains(wrapper.Root!.Links, l => l.Context == other.Context);
@@ -87,7 +87,7 @@ namespace GMO.OpenTelemetry.Tests
             using var other = _source.StartActivity("Linked")!;
             var link = new ActivityLink(other.Context);
             var options = Detached();
-            options.Links = new[] { link };
+            options.Links = [link];
 
             using var wrapper = new RootActivityWrapper("RootOp", _source, options);
 
@@ -148,7 +148,7 @@ namespace GMO.OpenTelemetry.Tests
             Assert.Equal(ActivityStatusCode.Ok, root!.Status);
         }
 
-        private static ActivityOptions Detached() => new ActivityOptions { ForceNewDetachedRoot = true };
+        private static ActivityOptions Detached() => new() { ForceNewDetachedRoot = true };
 
         [Fact]
         public void Dispose_RestoresParentActivity()
@@ -222,13 +222,9 @@ namespace GMO.OpenTelemetry.Tests
             Assert.Contains(wrapper.Root!.Links, link => link.Context.TraceId == parentContext.TraceId);
         }
 
-        private sealed class FinalizerPathRootWrapper : RootActivityWrapper
+        private sealed class FinalizerPathRootWrapper(string operationName, ActivitySource source, ActivityOptions? options = null)
+            : RootActivityWrapper(operationName, source, options)
         {
-            public FinalizerPathRootWrapper(string operationName, ActivitySource source, ActivityOptions? options = null)
-                : base(operationName, source, options)
-            {
-            }
-
             public void DisposeFromFinalizer() => Dispose(false);
         }
 

@@ -12,7 +12,7 @@
 # Pinned for reproducibility; bump deliberately.
 services:
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.96.0
+    image: otel/opentelemetry-collector-contrib:0.165.0
     container_name: gmo-otel-testapps-collector
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
     volumes:
@@ -24,7 +24,7 @@ services:
 
   # Throwaway credentials for a local container; Invoke-TestAppValidation.ps1 uses the same values.
   mssql:
-    image: mcr.microsoft.com/mssql/server:2025-latest
+    image: mcr.microsoft.com/mssql/server:2025-CU10-GDR1-ubuntu-24.04
     container_name: gmo-otel-testapps-mssql
     profiles: ["db"]
     environment:

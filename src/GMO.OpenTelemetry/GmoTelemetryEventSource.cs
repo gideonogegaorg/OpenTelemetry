@@ -13,7 +13,7 @@ namespace GMO.OpenTelemetry
     {
         public const string SourceName = "OpenTelemetry-Gmo-Shared";
 
-        public static readonly GmoTelemetryEventSource Log = new GmoTelemetryEventSource();
+        public static readonly GmoTelemetryEventSource Log = new();
 
         private GmoTelemetryEventSource() { }
 

@@ -16,9 +16,10 @@ namespace GMO.OpenTelemetry.Tests
         public override Uri? GetOtlpEndpoint() => null;
     }
 
-    public class OpenTelemetryExtensionsTests
+    public class OpenTelemetryExtensionsTests(FakeOtlpReceiver receiver)
     {
-        private static readonly string[] TestMeters = new[] { "TestMeter" };
+        private static readonly string[] TestMeters = ["TestMeter"];
+        private static readonly string[] TestSources = ["Test"];
 
         private static TestOptions BuildOptions(bool enabled, bool http = false, bool console = false, Uri? metricsEndpoint = null, string[]? meters = null)
         {
@@ -30,8 +31,17 @@ namespace GMO.OpenTelemetry.Tests
                 HeadersOverride = "api-key=test-key",
                 Otlp = new OtlpSettings { Endpoint = new Uri("http://localhost:4317"), Headers = "api-key=test-key" },
                 MetricsEndpoint = metricsEndpoint,
-                MeterSourceNames = meters ?? new[] { "*" },
+                MeterSourceNames = meters ?? ["*"],
             };
+        }
+
+        // Disposing a built MeterProvider exports once, so a provider the test builds needs somewhere to send.
+        private TestOptions ExportingOptions()
+        {
+            var options = BuildOptions(true, meters: TestMeters);
+            options.Otlp.Endpoint = receiver.Endpoint;
+            options.Otlp.Protocol = OtlpExportProtocol.HttpProtobuf;
+            return options;
         }
 
         [Fact]
@@ -55,7 +65,7 @@ namespace GMO.OpenTelemetry.Tests
             var result = services.AddGmoOpenTelemetry(opts);
 
             Assert.NotNull(result);
-            var provider = services.BuildServiceProvider();
+            using var provider = services.BuildServiceProvider();
             Assert.NotNull(provider.GetService<TruncatingSpanProcessor>());
             Assert.NotNull(provider.GetService<IAttributeEnricher>());
         }
@@ -76,7 +86,7 @@ namespace GMO.OpenTelemetry.Tests
         {
             var services = new ServiceCollection();
             services.AddLogging();
-            var opts = BuildOptions(true, meters: TestMeters);
+            var opts = ExportingOptions();
             var configured = false;
 
             services.AddGmoOpenTelemetry(opts, additionalMetrics: _ => configured = true);
@@ -91,7 +101,7 @@ namespace GMO.OpenTelemetry.Tests
         {
             var mock = new Mock<IOpenTelemetryOptions>();
             mock.SetupGet(o => o.Enabled).Returns(true);
-            mock.SetupGet(o => o.TraceSourceNames).Returns(new[] { "Test" });
+            mock.SetupGet(o => o.TraceSourceNames).Returns(TestSources);
             mock.SetupGet(o => o.MeterSourceNames).Returns(TestMeters);
             mock.SetupGet(o => o.Otlp).Returns(new OtlpSettings());
             mock.Setup(o => o.GetOtlpEndpoint()).Returns(new Uri("http://localhost:4318"));
@@ -132,7 +142,7 @@ namespace GMO.OpenTelemetry.Tests
         {
             var services = new ServiceCollection();
             var opts = BuildOptions(true);
-            opts.TraceSourceNames = Array.Empty<string>();
+            opts.TraceSourceNames = [];
             var builder = services.AddOpenTelemetry();
             var result = builder.WithGmoTracing(opts);
             Assert.Same(builder, result);
@@ -191,7 +201,7 @@ namespace GMO.OpenTelemetry.Tests
             var builder = services.AddOpenTelemetry();
             services.AddMetrics(builder, BuildOptions(false), _ => { });
             // Disabled — CustomMetrics hosted service must not be registered
-            var provider = services.BuildServiceProvider();
+            using var provider = services.BuildServiceProvider();
             var hostedServices = provider.GetServices<Microsoft.Extensions.Hosting.IHostedService>();
             Assert.DoesNotContain(hostedServices, s => s is CustomMetrics);
         }
@@ -201,10 +211,10 @@ namespace GMO.OpenTelemetry.Tests
         {
             var services = new ServiceCollection();
             services.AddLogging();
-            var opts = BuildOptions(true, meters: Array.Empty<string>());
+            var opts = BuildOptions(true, meters: []);
             var builder = services.AddOpenTelemetry();
             services.AddMetrics(builder, opts, _ => { });
-            var provider = services.BuildServiceProvider();
+            using var provider = services.BuildServiceProvider();
             var hostedServices = provider.GetServices<Microsoft.Extensions.Hosting.IHostedService>();
             Assert.DoesNotContain(hostedServices, s => s is CustomMetrics);
         }
@@ -217,7 +227,7 @@ namespace GMO.OpenTelemetry.Tests
             var opts = BuildOptions(true, metricsEndpoint: new Uri("http://localhost:4317"), meters: TestMeters);
             var builder = services.AddOpenTelemetry();
             services.AddMetrics(builder, opts, _ => { });
-            var provider = services.BuildServiceProvider();
+            using var provider = services.BuildServiceProvider();
             var hostedServices = provider.GetServices<Microsoft.Extensions.Hosting.IHostedService>();
             Assert.Contains(hostedServices, s => s is CustomMetrics);
         }
@@ -235,7 +245,7 @@ namespace GMO.OpenTelemetry.Tests
         public void WithMetrics_NoMeterSources_ReturnsEarly()
         {
             var services = new ServiceCollection();
-            var opts = BuildOptions(true, meters: Array.Empty<string>());
+            var opts = BuildOptions(true, meters: []);
             var builder = services.AddOpenTelemetry();
             var exception = Record.Exception(() => builder.WithMetrics(opts, _ => { }));
             Assert.Null(exception);
@@ -250,7 +260,7 @@ namespace GMO.OpenTelemetry.Tests
             var opts = new NullEndpointOptions
             {
                 Enabled = true,
-                MeterSourceNames = new[] { "TestMeter" },
+                MeterSourceNames = ["TestMeter"],
                 MetricsEndpoint = null,
             };
             var builder = services.AddOpenTelemetry();
@@ -268,7 +278,7 @@ namespace GMO.OpenTelemetry.Tests
             var opts = new NullEndpointOptions
             {
                 Enabled = false,
-                MeterSourceNames = new[] { "TestMeter" },
+                MeterSourceNames = ["TestMeter"],
             };
             var builder = services.AddOpenTelemetry();
 
@@ -283,7 +293,7 @@ namespace GMO.OpenTelemetry.Tests
             var opts = new NullEndpointOptions
             {
                 Enabled = true,
-                MeterSourceNames = Array.Empty<string>(),
+                MeterSourceNames = [],
             };
             var builder = services.AddOpenTelemetry();
 
@@ -312,7 +322,7 @@ namespace GMO.OpenTelemetry.Tests
             services.AddLogging();
             var opts = BuildOptions(true);
             opts.Otlp.Endpoint = null;
-            opts.TraceSourceNames = Array.Empty<string>();
+            opts.TraceSourceNames = [];
             var builder = services.AddOpenTelemetry();
 
             Assert.Null(Record.Exception(() => builder.WithGmoTracing(opts)));
@@ -420,7 +430,7 @@ namespace GMO.OpenTelemetry.Tests
         [Fact]
         public void AddGmoMetrics_BuildsAWorkingProvider()
         {
-            var opts = BuildOptions(true, meters: TestMeters);
+            var opts = ExportingOptions();
 
             using var provider = Sdk.CreateMeterProviderBuilder().AddGmoMetrics(opts).Build();
 
@@ -439,7 +449,7 @@ namespace GMO.OpenTelemetry.Tests
         [Fact]
         public void AddGmoMetrics_NoMeterSources_LeavesTheBuilderAlone()
         {
-            var opts = BuildOptions(true, meters: Array.Empty<string>());
+            var opts = BuildOptions(true, meters: []);
             var builder = Sdk.CreateMeterProviderBuilder();
 
             Assert.Same(builder, builder.AddGmoMetrics(opts));

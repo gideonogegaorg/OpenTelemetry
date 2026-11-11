@@ -22,5 +22,4 @@
   <ItemGroup>
     <ProjectReference Include="..\GMO.OpenTelemetry\GMO.OpenTelemetry.csproj" />
   </ItemGroup>
-
 </Project>

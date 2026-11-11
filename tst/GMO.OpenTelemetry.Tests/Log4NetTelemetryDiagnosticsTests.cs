@@ -8,8 +8,9 @@ namespace GMO.OpenTelemetry.Tests
     [Collection(nameof(TelemetryDiagnosticsState))]
     public class Log4NetTelemetryDiagnosticsTests : IDisposable
     {
-        private readonly MemoryAppender _memory = new MemoryAppender();
+        private readonly MemoryAppender _memory = new();
         private readonly log4net.ILog _log;
+        private readonly string _source = "test-" + Guid.NewGuid().ToString("N");
 
         public Log4NetTelemetryDiagnosticsTests()
         {
@@ -25,15 +26,19 @@ namespace GMO.OpenTelemetry.Tests
             GC.SuppressFinalize(this);
         }
 
+        // Exporters left running by earlier tests can report through the same writer while a test runs.
+        private LoggingEvent[] Mine(MemoryAppender appender) =>
+            [.. appender.GetEvents().Where(e => Equals(e.LookupProperty("TelemetrySource"), _source))];
+
         [Fact]
         public void StartTelemetryDiagnostics_RoutesReportsToTheLog()
         {
             _log.StartTelemetryDiagnostics();
 
-            TelemetryDiagnostics.Report("OpenTelemetry-Sdk", "ExportFailed", "k1", isError: true, "timed out");
-            TelemetryDiagnostics.Report("OpenTelemetry-Sdk", "QueueFull", "k2", isError: false, "dropped");
+            TelemetryDiagnostics.Report(_source, "ExportFailed", "k1", isError: true, "timed out");
+            TelemetryDiagnostics.Report(_source, "QueueFull", "k2", isError: false, "dropped");
 
-            var events = _memory.GetEvents();
+            var events = Mine(_memory);
             Assert.Equal(2, events.Length);
             Assert.Equal(Level.Error, events[0].Level);
             Assert.Equal(Level.Warn, events[1].Level);
@@ -52,10 +57,10 @@ namespace GMO.OpenTelemetry.Tests
             log4net.LogManager.GetLogger(repository.Name, "first").StartTelemetryDiagnostics();
 
             _log.StartTelemetryDiagnostics();
-            TelemetryDiagnostics.Report("S", "E", "k", isError: true, "detail");
+            TelemetryDiagnostics.Report(_source, "E", "k", isError: true, "detail");
 
-            Assert.Empty(first.GetEvents());
-            Assert.Single(_memory.GetEvents());
+            Assert.Empty(Mine(first));
+            Assert.Single(Mine(_memory));
         }
     }
 }

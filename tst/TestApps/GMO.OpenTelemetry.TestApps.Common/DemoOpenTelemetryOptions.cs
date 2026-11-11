@@ -4,21 +4,15 @@ using Microsoft.Extensions.Configuration;
 
 namespace GMO.OpenTelemetry.TestApps.Common
 {
-    public sealed class DemoOpenTelemetryOptions : OpenTelemetryOptionsBase
+    public sealed class DemoOpenTelemetryOptions(string serviceName, string? version = null) : OpenTelemetryOptionsBase
     {
-        private readonly string _serviceName;
-        private readonly string _version;
+        private readonly string _serviceName = serviceName;
+        private readonly string _version = version ?? "1.0.0-testapp";
 
 #if NETFRAMEWORK
         private Uri? _otlpEndpoint;
         private string? _headers;
 #endif
-
-        public DemoOpenTelemetryOptions(string serviceName, string? version = null)
-        {
-            _serviceName = serviceName;
-            _version = version ?? "1.0.0-testapp";
-        }
 
         public override string ServiceName => _serviceName;
         public override string Version => _version;
@@ -80,10 +74,10 @@ namespace GMO.OpenTelemetry.TestApps.Common
             options.PostgresConnectionString = section["PostgresConnectionString"];
 
             if (options.TraceSourceNames == null || options.TraceSourceNames.Length == 0)
-                options.TraceSourceNames = new[] { serviceName };
+                options.TraceSourceNames = [serviceName];
 
             if (options.MeterSourceNames == null || options.MeterSourceNames.Length == 0)
-                options.MeterSourceNames = new[] { serviceName, CustomMetrics.Name };
+                options.MeterSourceNames = [serviceName, CustomMetrics.Name];
 
             // Default an unconfigured TestApp at the local OTLP collector (docker compose) rather
             // than a vendor: ServiceProvider stays Collector (the enum default). net48 is

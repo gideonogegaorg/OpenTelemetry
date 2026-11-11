@@ -47,7 +47,7 @@ namespace GMO.OpenTelemetry
             _activitySource = activitySource ?? throw new ArgumentNullException(nameof(activitySource));
             _forceNewDetachedRoot = options?.ForceNewDetachedRoot ?? false;
             _log = options?.Log;
-            _additionalData = options?.AdditionalData ?? new Dictionary<string, object>();
+            _additionalData = options?.AdditionalData ?? [];
             _parentContext = options?.ParentContext ?? default;
             _activityKind = options?.ActivityKind ?? ActivityKind.Internal;
             _links = options?.Links;
@@ -117,7 +117,7 @@ namespace GMO.OpenTelemetry
 
             if (IsPrimitiveType(typeof(T))) items = items.Distinct();
 
-            var materialized = items as ICollection<T> ?? items.ToList();
+            var materialized = items as ICollection<T> ?? [.. items];
             SetTag(name + "Count", materialized.Count);
             SetTag(name, materialized);
             return this;

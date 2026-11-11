@@ -21,10 +21,6 @@
 		<InternalsVisibleTo Include="GMO.OpenTelemetry.Npgsql" />
 	</ItemGroup>
 
-	<PropertyGroup Condition="'$(TargetFramework)' == 'net48'">
-		<LangVersion>9.0</LangVersion>
-	</PropertyGroup>
-
 	<PropertyGroup Condition="'$(TargetFramework)' != 'net48'">
 		<ImplicitUsings>enable</ImplicitUsings>
 	</PropertyGroup>
@@ -48,6 +44,4 @@
 		<Reference Include="System.Web" />
 		<PackageReference Include="System.Threading.Channels" />
 	</ItemGroup>
-
-
 </Project>

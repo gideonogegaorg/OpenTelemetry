@@ -53,7 +53,7 @@ namespace GMO.OpenTelemetry
         internal static string? Shorten(string? text) =>
             text == null || text.Length <= _maxValueLength
                 ? text
-                : text.Substring(0, LogMessageChunker.FirstChunkLength(text, _maxValueLength));
+                : text[..LogMessageChunker.FirstChunkLength(text, _maxValueLength)];
 
         internal static int ResolveDepth(int configured) => configured > 0 ? configured : DefaultMaxDepth;
 
@@ -169,14 +169,13 @@ namespace GMO.OpenTelemetry
             }
         }
 
-        private static Member[] ReadableMembers(Type type) => MembersByType.GetOrAdd(type, t => t
-            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(p => p.CanRead && p.GetIndexParameters().Length == 0 && !IsEntityFrameworkMember(p.PropertyType))
-            .Select(p => new Member(p))
-            .Where(m => !m.AlwaysIgnored)
-            .ToArray());
+        private static Member[] ReadableMembers(Type type) => MembersByType.GetOrAdd(type, t =>
+            [.. t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.CanRead && p.GetIndexParameters().Length == 0 && !IsEntityFrameworkMember(p.PropertyType))
+                .Select(p => new Member(p))
+                .Where(m => !m.AlwaysIgnored)]);
 
-        private static readonly ConcurrentDictionary<Type, Member[]> MembersByType = new ConcurrentDictionary<Type, Member[]>();
+        private static readonly ConcurrentDictionary<Type, Member[]> MembersByType = new();
 
         /// <summary>
         /// A readable property with its <c>[JsonIgnore]</c> and <c>[JsonPropertyName]</c>, which the walk
@@ -274,7 +273,7 @@ namespace GMO.OpenTelemetry
             IsEntityFrameworkType(type)
             || (type.IsGenericType && type.GetGenericArguments().Any(IsEntityFrameworkType));
 
-        private static readonly ConcurrentDictionary<Type, bool> EntityFrameworkTypes = new ConcurrentDictionary<Type, bool>();
+        private static readonly ConcurrentDictionary<Type, bool> EntityFrameworkTypes = new();
 
         /// <summary>
         /// Matched by name, so the library needs no Entity Framework reference: anything in an EF6 or EF4
@@ -299,7 +298,7 @@ namespace GMO.OpenTelemetry
 
         private sealed class ReferenceComparer : IEqualityComparer<object>
         {
-            internal static readonly ReferenceComparer Instance = new ReferenceComparer();
+            internal static readonly ReferenceComparer Instance = new();
 
             public new bool Equals(object? x, object? y) => ReferenceEquals(x, y);
 

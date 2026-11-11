@@ -14,7 +14,7 @@ using Xunit;
 namespace GMO.OpenTelemetry.Tests
 {
     [Collection("OpenTelemetryEnricherState")]
-    public class SerilogOpenTelemetryExtensionsTests
+    public class SerilogOpenTelemetryExtensionsTests(FakeOtlpReceiver receiver)
     {
         private static IConfiguration EmptyConfig() =>
             new ConfigurationBuilder().Build();
@@ -22,7 +22,7 @@ namespace GMO.OpenTelemetry.Tests
         /// <summary>Captures enriched events so tests can assert on the properties the pipeline added.</summary>
         private sealed class CaptureSink : ILogEventSink
         {
-            public List<LogEvent> Events { get; } = new List<LogEvent>();
+            public List<LogEvent> Events { get; } = [];
 
             public void Emit(LogEvent logEvent) => Events.Add(logEvent);
         }
@@ -31,7 +31,7 @@ namespace GMO.OpenTelemetry.Tests
         public void AddOpenTelemetry_Disabled_DoesNotConfigureSink()
         {
             var services = new ServiceCollection();
-            var provider = services.BuildServiceProvider();
+            using var provider = services.BuildServiceProvider();
             var options = new TestOptions { Enabled = false, EnableLogging = true };
             var logConfig = new LoggerConfiguration();
 
@@ -45,7 +45,7 @@ namespace GMO.OpenTelemetry.Tests
         public void AddOpenTelemetry_LoggingDisabled_DoesNotConfigureSink()
         {
             var services = new ServiceCollection();
-            var provider = services.BuildServiceProvider();
+            using var provider = services.BuildServiceProvider();
             var options = new TestOptions { Enabled = true, EnableLogging = false };
             var logConfig = new LoggerConfiguration();
 
@@ -68,11 +68,11 @@ namespace GMO.OpenTelemetry.Tests
         {
             var attributeEnricher = new Mock<IAttributeEnricher>();
             attributeEnricher.Setup(e => e.Enrich(null))
-                .Returns(new Dictionary<string, object>());
+                .Returns([]);
 
             var services = new ServiceCollection();
             services.AddSingleton(attributeEnricher.Object);
-            var provider = services.BuildServiceProvider();
+            using var provider = services.BuildServiceProvider();
 
             var options = EnabledOptions();
             var logConfig = new LoggerConfiguration();
@@ -196,11 +196,11 @@ namespace GMO.OpenTelemetry.Tests
             Assert.False(captured.Properties.ContainsKey(OpenTelemetryEnricher.LevelProp));
         }
 
-        private static TestOptions EnabledOptions() => new TestOptions
+        private TestOptions EnabledOptions() => new()
         {
             Enabled = true,
             EnableLogging = true,
-            LoggingEndpoint = "http://localhost:4318",
+            LoggingEndpoint = receiver.LogsEndpoint,
             HeadersOverride = "api-key=test-key",
             LogsMaxBatchSize = 10,
             LogsMaxQueueSize = 100,

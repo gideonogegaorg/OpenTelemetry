@@ -182,7 +182,7 @@ namespace GMO.OpenTelemetry.Tests
 #endif
 
         private static TestOptions ProviderOptions(OpenTelemetryServiceProvider provider) =>
-            new TestOptions { ServiceProvider = provider };
+            new() { ServiceProvider = provider };
 
         private static string? Mismatch(OpenTelemetryServiceProvider provider, OtlpSignal signal, string endpoint) =>
             OtlpEnvironment.DescribeSignalEndpointMismatch(

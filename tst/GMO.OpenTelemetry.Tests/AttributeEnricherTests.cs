@@ -35,8 +35,8 @@ namespace GMO.OpenTelemetry.Tests
             opts.Setup(o => o.IncludeThreadInfo).Returns(thread);
             opts.Setup(o => o.IncludeUserInfo).Returns(user);
             opts.Setup(o => o.IncludeSourceLocation).Returns(source);
-            opts.Setup(o => o.Attributes).Returns(new Dictionary<string, object>());
-            opts.Setup(o => o.LogStackExclusions).Returns(System.Array.Empty<string>());
+            opts.Setup(o => o.Attributes).Returns([]);
+            opts.Setup(o => o.LogStackExclusions).Returns([]);
             return opts.Object;
         }
 
@@ -128,7 +128,7 @@ namespace GMO.OpenTelemetry.Tests
             opts.Setup(o => o.IncludeThreadInfo).Returns(false);
             opts.Setup(o => o.IncludeUserInfo).Returns(false);
             opts.Setup(o => o.IncludeSourceLocation).Returns(false);
-            opts.Setup(o => o.LogStackExclusions).Returns(System.Array.Empty<string>());
+            opts.Setup(o => o.LogStackExclusions).Returns([]);
             opts.Setup(o => o.Attributes).Returns(new Dictionary<string, object> { ["custom"] = "val" });
 
             var sut = new AttributeEnricher(opts.Object);
@@ -177,7 +177,7 @@ namespace GMO.OpenTelemetry.Tests
         {
             var opts = new Mock<IOpenTelemetryOptions>();
             opts.Setup(o => o.Attributes).Throws(new InvalidOperationException("boom"));
-            opts.Setup(o => o.LogStackExclusions).Returns(System.Array.Empty<string>());
+            opts.Setup(o => o.LogStackExclusions).Returns([]);
             var sut = new AttributeEnricher(opts.Object);
             var result = sut.Enrich(null);
             Assert.NotNull(result);

@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Moq;
 using Serilog;
@@ -6,14 +7,19 @@ using Serilog.Core;
 using Serilog.Events;
 using Xunit;
 
+[assembly: SuppressMessage("Style", "IDE0130:Namespace does not match folder structure", Scope = "namespace", Target = "~N:System.Data.Entity.DynamicProxies", Justification = "A stand-in for a third-party type; the code under test recognises it by this namespace.")]
+[assembly: SuppressMessage("Style", "IDE0130:Namespace does not match folder structure", Scope = "namespace", Target = "~N:Newtonsoft.Json", Justification = "A stand-in for a third-party type; the code under test recognises it by this namespace.")]
+
 namespace GMO.OpenTelemetry.Tests
 {
     [Collection("OpenTelemetryEnricherState")]
     public class ObjectRendererTests
     {
+        private static readonly string[] KeptOnly = ["Kept"];
+
         internal static JsonElement Json(object? rendered) => JsonDocument.Parse(Assert.IsType<string>(rendered)).RootElement;
 
-        internal static Level Nested() => new Level
+        internal static Level Nested() => new()
         {
             Name = "L1",
             Child = new Level { Name = "L2", Child = new Level { Name = "L3", Child = new Level { Name = "L4" } } },
@@ -134,7 +140,7 @@ namespace GMO.OpenTelemetry.Tests
             var inner = Json(ObjectRenderer.Render(new { Inner = new Conditional { Note = "n", Retries = 2, Label = "l" } }, 2))
                 .GetProperty("Inner");
 
-            Assert.Equal(new[] { "Kept" }, inner.EnumerateObject().Select(p => p.Name).ToArray());
+            Assert.Equal(KeptOnly, inner.EnumerateObject().Select(p => p.Name).ToArray());
             Assert.Equal(JsonValueKind.Null, inner.GetProperty("Kept").ValueKind);
         }
 #endif
@@ -373,7 +379,7 @@ namespace GMO.OpenTelemetry.Tests
 
             public List<System.Data.Entity.DynamicProxies.Employee_Proxy> Entities
             {
-                get { _reads++; return new List<System.Data.Entity.DynamicProxies.Employee_Proxy>(); }
+                get { _reads++; return []; }
             }
         }
 
@@ -445,7 +451,7 @@ namespace GMO.OpenTelemetry.Tests
 
         internal sealed class CaptureSink : ILogEventSink
         {
-            public List<LogEvent> Events { get; } = new List<LogEvent>();
+            public List<LogEvent> Events { get; } = [];
             public void Emit(LogEvent logEvent) => Events.Add(logEvent);
         }
     }
@@ -562,8 +568,12 @@ namespace GMO.OpenTelemetry.Tests
                 ObjectRenderer.Configure(new TestOptions());
             }
         }
+    }
 
 #if !NETFRAMEWORK
+    [Collection(nameof(RendererDepthState))]
+    public class SerilogPipelineDepthTests(FakeOtlpReceiver receiver)
+    {
         [Theory]
         [InlineData(2, "L1")]
         [InlineData(3, "L2")]
@@ -575,7 +585,7 @@ namespace GMO.OpenTelemetry.Tests
                 {
                     Enabled = true,
                     EnableLogging = true,
-                    LoggingEndpoint = "http://localhost:4318",
+                    LoggingEndpoint = receiver.LogsEndpoint,
                     Otlp = new OtlpSettings { Protocol = global::OpenTelemetry.Exporter.OtlpExportProtocol.HttpProtobuf },
                     MaxSerializationDepth = depth,
                 };
@@ -596,8 +606,8 @@ namespace GMO.OpenTelemetry.Tests
                 ObjectRenderer.Configure(new TestOptions());
             }
         }
-#endif
     }
+#endif
 }
 
 namespace System.Data.Entity.DynamicProxies

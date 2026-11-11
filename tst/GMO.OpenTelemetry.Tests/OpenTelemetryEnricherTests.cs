@@ -14,7 +14,7 @@ namespace GMO.OpenTelemetry.Tests
         {
             var props = properties?.Select(kvp => new LogEventProperty(kvp.Key, kvp.Value))
                             .ToArray()
-                        ?? Array.Empty<LogEventProperty>();
+                        ?? [];
             return new LogEvent(
                 DateTimeOffset.UtcNow,
                 level,
@@ -149,7 +149,7 @@ namespace GMO.OpenTelemetry.Tests
             var enricher = new OpenTelemetryEnricher();
             var logEvent = BuildLogEvent();
             var factory = BuildFactory();
-            mock.Setup(a => a.Enrich(null)).Returns(new Dictionary<string, object>());
+            mock.Setup(a => a.Enrich(null)).Returns([]);
 
             enricher.Enrich(logEvent, factory.Object);
 

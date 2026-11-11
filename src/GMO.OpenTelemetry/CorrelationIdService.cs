@@ -26,12 +26,12 @@ namespace GMO.OpenTelemetry
         private const string CallContextKey = "CorrelationId_CallContext";
 
         private static readonly string[] CorrelationIdHeaders =
-        {
+        [
             "X-Correlation-ID",
             "X-Request-ID",
             "Request-ID",
             "Correlation-ID"
-        };
+        ];
 #else
         private static readonly AsyncLocal<string?> _correlationId = new();
 #endif
@@ -39,16 +39,16 @@ namespace GMO.OpenTelemetry
         public string GetCorrelationId()
         {
             var fromActivity = GetCorrelationIdFromActivity(Activity.Current);
-            if (!string.IsNullOrEmpty(fromActivity))
-                return fromActivity!;
+            if (!Strings.IsNullOrEmpty(fromActivity))
+                return fromActivity;
 
 #if NET48
             var fromContext = GetCorrelationIdFromCallContextOrHttp();
-            if (!string.IsNullOrEmpty(fromContext))
-                return fromContext!;
+            if (!Strings.IsNullOrEmpty(fromContext))
+                return fromContext;
 #else
-            if (!string.IsNullOrWhiteSpace(_correlationId.Value))
-                return _correlationId.Value!;
+            if (!Strings.IsNullOrWhiteSpace(_correlationId.Value))
+                return _correlationId.Value;
 #endif
 
             var newCorrelationId = GenerateCorrelationId();
@@ -102,8 +102,8 @@ namespace GMO.OpenTelemetry
         private string? GetCorrelationIdFromCallContextOrHttp()
         {
             var callContextValue = CallContext.LogicalGetData(CallContextKey) as string;
-            if (!string.IsNullOrEmpty(callContextValue))
-                return callContextValue!;
+            if (!Strings.IsNullOrEmpty(callContextValue))
+                return callContextValue;
 
             if (HttpContext.Current != null)
             {
@@ -112,10 +112,10 @@ namespace GMO.OpenTelemetry
                     return httpContextValue;
 
                 var headerCorrelationId = ExtractCorrelationIdFromHeaders();
-                if (!string.IsNullOrEmpty(headerCorrelationId))
+                if (!Strings.IsNullOrEmpty(headerCorrelationId))
                 {
                     HttpContext.Current.Items[CorrelationIdKey] = headerCorrelationId;
-                    return headerCorrelationId!;
+                    return headerCorrelationId;
                 }
             }
 
@@ -142,11 +142,7 @@ namespace GMO.OpenTelemetry
             // Set in CallContext for async flow
             CallContext.LogicalSetData(CallContextKey, correlationId);
 
-            // Set in HttpContext if available
-            if (HttpContext.Current != null)
-            {
-                HttpContext.Current.Items[CorrelationIdKey] = correlationId;
-            }
+            HttpContext.Current?.Items[CorrelationIdKey] = correlationId;
 #else
             // Set in AsyncLocal storage (.NET 8+)
             _correlationId.Value = correlationId;

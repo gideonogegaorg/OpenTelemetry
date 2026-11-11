@@ -6,21 +6,12 @@ namespace GMO.OpenTelemetry.Serilog
     /// <summary>
     /// Serilog adapter for IActivityLogger interface
     /// </summary>
-    public class SerilogActivityLogger : IActivityLogger
+    /// <param name="logger">The Serilog logger instance</param>
+    /// <param name="logLevel">The log level to use for activity logging (default: Information)</param>
+    public class SerilogActivityLogger(ILogger logger, LogEventLevel logLevel = LogEventLevel.Information) : IActivityLogger
     {
-        private readonly ILogger _logger;
-        private readonly LogEventLevel _logLevel;
-
-        /// <summary>
-        /// Creates a new SerilogActivityLogger
-        /// </summary>
-        /// <param name="logger">The Serilog logger instance</param>
-        /// <param name="logLevel">The log level to use for activity logging (default: Information)</param>
-        public SerilogActivityLogger(ILogger logger, LogEventLevel logLevel = LogEventLevel.Information)
-        {
-            _logger = logger ?? throw new System.ArgumentNullException(nameof(logger));
-            _logLevel = logLevel;
-        }
+        private readonly ILogger _logger = logger ?? throw new System.ArgumentNullException(nameof(logger));
+        private readonly LogEventLevel _logLevel = logLevel;
 
         /// <summary>
         /// Logs when an activity starts

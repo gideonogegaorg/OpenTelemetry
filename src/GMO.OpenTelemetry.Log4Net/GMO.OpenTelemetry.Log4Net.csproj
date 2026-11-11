@@ -8,10 +8,6 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net48'">
-    <LangVersion>9.0</LangVersion>
-  </PropertyGroup>
-
   <PropertyGroup Condition="'$(TargetFramework)' != 'net48'">
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
@@ -32,5 +28,4 @@
   <ItemGroup>
     <InternalsVisibleTo Include="GMO.OpenTelemetry.Tests" />
   </ItemGroup>
-
 </Project>

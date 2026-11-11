@@ -7,10 +7,6 @@
     <RootNamespace>GMO.OpenTelemetry.TestApps.Common</RootNamespace>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net48'">
-    <LangVersion>10.0</LangVersion>
-  </PropertyGroup>
-
   <PropertyGroup Condition="'$(TargetFramework)' != 'net48'">
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
@@ -46,5 +42,4 @@
   <ItemGroup Condition="'$(TargetFramework)' != 'net48'">
     <ProjectReference Include="..\..\..\src\GMO.OpenTelemetry.Npgsql\GMO.OpenTelemetry.Npgsql.csproj" />
   </ItemGroup>
-
 </Project>

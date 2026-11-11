@@ -14,7 +14,7 @@ namespace GMO.OpenTelemetry.Serilog
 {
     public class ChunkingOpenTelemetrySink : ILogEventSink, IDisposable
     {
-        private static readonly char[] HeaderKeyValueSeparator = { '=' };
+        private static readonly char[] HeaderKeyValueSeparator = ['='];
 
         /// <summary>
         /// Parses comma-separated <c>key=value</c> pairs, splitting on the first <c>=</c> so values may
@@ -24,10 +24,10 @@ namespace GMO.OpenTelemetry.Serilog
         internal static Dictionary<string, string> ParseHeaders(string? headers)
         {
             var parsed = new Dictionary<string, string>();
-            if (string.IsNullOrWhiteSpace(headers))
+            if (Strings.IsNullOrWhiteSpace(headers))
                 return parsed;
 
-            foreach (var part in headers!.Split(','))
+            foreach (var part in headers.Split(','))
             {
                 var pair = part.Split(HeaderKeyValueSeparator, 2);
                 if (pair.Length != 2)
@@ -152,7 +152,7 @@ namespace GMO.OpenTelemetry.Serilog
 
         /// <summary>A sink that writes to <paramref name="inner"/> instead of an OTLP endpoint, for tests.</summary>
         internal static ChunkingOpenTelemetrySink WritingTo(IOpenTelemetryOptions options, LoggerConfiguration inner) =>
-            new ChunkingOpenTelemetrySink(options, inner.CreateLogger());
+            new(options, inner.CreateLogger());
 
         private ChunkingOpenTelemetrySink(IOpenTelemetryOptions options, Logger logger)
         {
@@ -168,15 +168,13 @@ namespace GMO.OpenTelemetry.Serilog
 
         public ChunkingOpenTelemetrySink(IOpenTelemetryOptions options, IConfiguration configuration)
         {
+            _options = options ?? throw new ArgumentNullException(nameof(options));
 #if NET6_0_OR_GREATER
-            ArgumentNullException.ThrowIfNull(options);
             ArgumentNullException.ThrowIfNull(configuration);
 #else
-            if (options == null) throw new ArgumentNullException(nameof(options));
             if (configuration == null) throw new ArgumentNullException(nameof(configuration));
 #endif
 
-            _options = options;
             _attributeBudget = AttributeBudget(options);
 
             var endpoint = ResolveLoggingEndpoint(options)
@@ -211,7 +209,7 @@ namespace GMO.OpenTelemetry.Serilog
                     opts.Headers = headers;
                     if (handler != null)
                         opts.HttpMessageHandler = handler;
-                    opts.ResourceAttributes = options.Attributes ?? new Dictionary<string, object>();
+                    opts.ResourceAttributes = options.Attributes ?? [];
                     opts.BatchingOptions.BatchSizeLimit = options.LogsMaxBatchSize > 0
                         ? options.LogsMaxBatchSize
                         : 100;
@@ -224,7 +222,7 @@ namespace GMO.OpenTelemetry.Serilog
                 .CreateLogger();
         }
 
-        private static readonly MessageTemplateParser TemplateParser = new MessageTemplateParser();
+        private static readonly MessageTemplateParser TemplateParser = new();
 
         public void Emit(LogEvent logEvent)
         {

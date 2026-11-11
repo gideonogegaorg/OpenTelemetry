@@ -70,7 +70,7 @@ namespace GMO.OpenTelemetry.Tests
             var options = new EndpointStubOptions
             {
                 Enabled = true,
-                TraceSourceNames = Array.Empty<string>(),
+                TraceSourceNames = [],
             };
 
             Assert.Null(Record.Exception(() =>

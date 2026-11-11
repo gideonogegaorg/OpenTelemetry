@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Serilog;
@@ -78,9 +79,8 @@ namespace GMO.OpenTelemetry.Serilog
             var enrichmentConfig = loggerConfig.Enrich;
             var enrichmentType = enrichmentConfig.GetType();
 
-            foreach (var enricher in enrichSection.GetChildren())
+            foreach (var enricherName in enrichSection.GetChildren().Select(enricher => enricher.Value))
             {
-                var enricherName = enricher.Value;
                 if (string.IsNullOrWhiteSpace(enricherName))
                 {
                     continue;

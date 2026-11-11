@@ -72,6 +72,34 @@ namespace GMO.OpenTelemetry.Tests
             Assert.Null(capture.CapturedContent);
         }
 
+        [Fact]
+        public async Task SendAsync_CancelledToken_ThrowsBeforeReachingInnerHandler()
+        {
+            var inner = new TokenIgnoringHandler();
+            using var invoker = new HttpMessageInvoker(new GzipCompressingHandler(inner));
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+
+            var request = new HttpRequestMessage(HttpMethod.Post, "http://localhost/test")
+            {
+                Content = new StringContent("payload", Encoding.UTF8, "application/json")
+            };
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => invoker.SendAsync(request, cts.Token));
+            Assert.False(inner.Called);
+        }
+
+        private sealed class TokenIgnoringHandler : HttpMessageHandler
+        {
+            public bool Called { get; private set; }
+
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                Called = true;
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+            }
+        }
+
 #if NET
         // The OTLP exporter sends synchronously on .NET 5+, which reaches Send and never SendAsync.
         [Fact]
@@ -126,7 +154,7 @@ namespace GMO.OpenTelemetry.Tests
             public bool Called { get; private set; }
             public byte[]? Body { get; private set; }
             public string? MediaType { get; private set; }
-            public string[] ContentEncoding { get; private set; } = Array.Empty<string>();
+            public string[] ContentEncoding { get; private set; } = [];
 
             protected override HttpResponseMessage Send(HttpRequestMessage request, CancellationToken cancellationToken)
             {
@@ -138,7 +166,7 @@ namespace GMO.OpenTelemetry.Tests
                 request.Content!.CopyTo(buffer, null, cancellationToken);
                 Body = buffer.ToArray();
                 MediaType = request.Content.Headers.ContentType?.MediaType;
-                ContentEncoding = request.Content.Headers.ContentEncoding.ToArray();
+                ContentEncoding = [.. request.Content.Headers.ContentEncoding];
                 return new HttpResponseMessage(HttpStatusCode.OK);
             }
 

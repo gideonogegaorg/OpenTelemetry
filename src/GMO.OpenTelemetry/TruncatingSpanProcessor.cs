@@ -18,7 +18,7 @@ namespace GMO.OpenTelemetry
 {
     public class TruncatingSpanProcessor : BaseProcessor<Activity>
     {
-        private static readonly Regex TenantRegex = new Regex(
+        private static readonly Regex TenantRegex = new(
                 @"^(?=.{1,63}$)[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
                 RegexOptions.Compiled,
                 TimeSpan.FromSeconds(1)
@@ -32,7 +32,7 @@ namespace GMO.OpenTelemetry
         private static readonly string OtelLibraryName = typeof(TruncatingSpanProcessor).FullName ?? nameof(TruncatingSpanProcessor);
         private static readonly string OtelLibraryVersion = typeof(TruncatingSpanProcessor).Assembly.GetName().Version?.ToString() ?? "unknown";
 
-        private readonly HashSet<string> _keysToLog = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase);
+        private readonly HashSet<string> _keysToLog = new(StringComparer.InvariantCultureIgnoreCase);
         private readonly IOpenTelemetryOptions _options;
         private readonly IAttributeEnricher _attributeEnricher;
         private readonly HttpClient? _httpClient;
@@ -128,7 +128,7 @@ namespace GMO.OpenTelemetry
             });
 
             _cts = new CancellationTokenSource();
-            _consumerTask = Task.Run(() => ConsumeOverflowLogsAsync(_cts.Token));
+            _consumerTask = Task.Run(() => ConsumeOverflowLogsAsync(_cts.Token), CancellationToken.None);
             _initialized = true;
         }
 
@@ -160,7 +160,7 @@ namespace GMO.OpenTelemetry
 #if NET
                     Path = string.Concat(endpoint.AbsolutePath.AsSpan(0, marker), DynatraceLogsApiPath),
 #else
-                    Path = endpoint.AbsolutePath.Substring(0, marker) + DynatraceLogsApiPath,
+                    Path = endpoint.AbsolutePath[..marker] + DynatraceLogsApiPath,
 #endif
                     Query = string.Empty,
                     Fragment = string.Empty,
@@ -206,7 +206,7 @@ namespace GMO.OpenTelemetry
                         continue;
 
                     var emitOverflow = shouldEmitLog && _keysToLog.Contains(tag.Key);
-                    modifications ??= new List<(string, string, bool)>();
+                    modifications ??= [];
                     modifications.Add((tag.Key, value, emitOverflow));
                 }
                 catch (Exception ex)
@@ -241,26 +241,26 @@ namespace GMO.OpenTelemetry
 
         private void ApplyModifications(Activity activity, List<(string Key, string Raw, bool EmitOverflow)> modifications, bool shouldSendOverflow)
         {
-            foreach (var mod in modifications)
+            foreach (var (key, raw, emitOverflow) in modifications)
             {
                 try
                 {
-                    if (mod.EmitOverflow)
+                    if (emitOverflow)
                     {
                         if (shouldSendOverflow)
-                            EnqueueOverflowLog(activity, mod.Key, mod.Raw);
-                        activity.SetTag(mod.Key, TruncateForTag(mod.Raw));
-                        activity.SetTag($"{mod.Key}Truncated", true);
+                            EnqueueOverflowLog(activity, key, raw);
+                        activity.SetTag(key, TruncateForTag(raw));
+                        activity.SetTag($"{key}Truncated", true);
                     }
                     else
                     {
-                        activity.SetTag(mod.Key, TruncateForTag(mod.Raw));
+                        activity.SetTag(key, TruncateForTag(raw));
                     }
                 }
                 catch (Exception ex)
                 {
                     GmoTelemetryEventSource.Log.OperationFailed(nameof(TruncatingSpanProcessor),
-                        $"applying truncation for tag '{mod.Key}'", GmoTelemetryEventSource.Describe(ex));
+                        $"applying truncation for tag '{key}'", GmoTelemetryEventSource.Describe(ex));
                 }
             }
         }
@@ -269,7 +269,7 @@ namespace GMO.OpenTelemetry
         // the record. Only reached with a positive limit and a value longer than it: OnEnd returns first
         // when the limit is unusable.
         private string TruncateForTag(string raw) =>
-            raw.Substring(0, LogMessageChunker.FirstChunkLength(raw, _maxAttributeValueLength));
+            raw[..LogMessageChunker.FirstChunkLength(raw, _maxAttributeValueLength)];
 
         private void EnqueueOverflowLog(Activity activity, string key, string raw)
         {
@@ -469,15 +469,17 @@ namespace GMO.OpenTelemetry
             await PostWithSplitAsync(logEvents.GetRange(mid, logEvents.Count - mid)).ConfigureAwait(false);
         }
 
+        // Not _cts.Token: Dispose cancels it and then waits for pending entries to drain, so the post
+        // must survive that cancellation. The HttpClient timeout bounds it instead.
         private async Task PostPayloadAsync(byte[] payloadBytes)
         {
             using var compressedStream = new MemoryStream();
             using (var gzipStream = new GZipStream(compressedStream, CompressionLevel.Fastest, leaveOpen: true))
             {
 #if NETFRAMEWORK
-                await gzipStream.WriteAsync(payloadBytes, 0, payloadBytes.Length).ConfigureAwait(false);
+                await gzipStream.WriteAsync(payloadBytes, 0, payloadBytes.Length, CancellationToken.None).ConfigureAwait(false);
 #else
-                await gzipStream.WriteAsync(payloadBytes).ConfigureAwait(false);
+                await gzipStream.WriteAsync(payloadBytes, CancellationToken.None).ConfigureAwait(false);
 #endif
             }
 
@@ -486,11 +488,11 @@ namespace GMO.OpenTelemetry
             content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
             content.Headers.ContentEncoding.Add("gzip");
 
-            using var response = await _httpClient!.PostAsync(string.Empty, content).ConfigureAwait(false);
+            using var response = await _httpClient!.PostAsync(string.Empty, content, CancellationToken.None).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 GmoTelemetryEventSource.Log.ExportRejected(nameof(TruncatingSpanProcessor),
-                    (int)response.StatusCode, _httpClient!.BaseAddress?.ToString() ?? "overflow log endpoint");
+                    (int)response.StatusCode, _httpClient.BaseAddress?.ToString() ?? "overflow log endpoint");
 
                 // Throwing lets FlushBatchAsync count the loss once, and unwinds any remaining split
                 // halves rather than firing them at an endpoint that just refused us.
@@ -511,7 +513,7 @@ namespace GMO.OpenTelemetry
                     _cts?.Cancel();
 
                     // Allow consumer to drain for a short period
-                    _consumerTask?.Wait(TimeSpan.FromSeconds(5));
+                    _consumerTask?.Wait((int)TimeSpan.FromSeconds(5).TotalMilliseconds, CancellationToken.None);
                 }
                 catch (Exception ex)
                 {
@@ -528,18 +530,11 @@ namespace GMO.OpenTelemetry
             base.Dispose(disposing);
         }
 
-        private readonly struct OverflowLogEntry
+        private readonly struct OverflowLogEntry(Dictionary<string, object> attributes, string payloadKey, string chunk)
         {
-            public Dictionary<string, object> Attributes { get; }
-            public string PayloadKey { get; }
-            public string Chunk { get; }
-
-            public OverflowLogEntry(Dictionary<string, object> attributes, string payloadKey, string chunk)
-            {
-                Attributes = attributes;
-                PayloadKey = payloadKey;
-                Chunk = chunk;
-            }
+            public Dictionary<string, object> Attributes { get; } = attributes;
+            public string PayloadKey { get; } = payloadKey;
+            public string Chunk { get; } = chunk;
         }
     }
 }

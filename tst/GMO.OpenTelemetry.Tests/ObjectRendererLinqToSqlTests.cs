@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Xunit;
+
+[assembly: SuppressMessage("Style", "IDE0130:Namespace does not match folder structure", Scope = "namespace", Target = "~N:System.Data.Linq.Mapping", Justification = "A stand-in for a third-party type; the code under test recognises it by this namespace.")]
 
 namespace System.Data.Linq.Mapping
 {
@@ -78,7 +81,7 @@ namespace GMO.OpenTelemetry.Tests
             [System.Data.Linq.Mapping.Association]
             public IEnumerable<string> Children
             {
-                get { _childrenReads++; return new[] { "c" }; }
+                get { _childrenReads++; return ["c"]; }
             }
 
             [System.Data.Linq.Mapping.Association]
