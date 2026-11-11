@@ -27,3 +27,4 @@ nupkgs/
 *.coverage
 
 logs/
+.playwright-mcp/

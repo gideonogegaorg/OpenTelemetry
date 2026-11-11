@@ -38,7 +38,9 @@ using GMO.OpenTelemetry;
 using GMO.OpenTelemetry.Serilog;
 
 // 1. Configure from appsettings (see Configuration below), then wire up OpenTelemetry + Serilog.
-builder.Services.AddOpenTelemetryWithEnricher(options);
+builder.Services.AddGmoOpenTelemetry(options);
+builder.Host.UseSerilog((context, services, loggerConfig) =>
+    loggerConfig.AddOpenTelemetry(options, context.Configuration, services));
 
 // 2. Instrument an operation — exceptions are recorded automatically, no manual try/catch.
 var logger = Log.ForContext<MyClass>().ToActivityLogger();
