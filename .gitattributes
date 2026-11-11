@@ -4,3 +4,4 @@
 # Force specific line endings for certain file types
 *.cs text eol=lf
 *.md text eol=lf
+*.sh text eol=lf

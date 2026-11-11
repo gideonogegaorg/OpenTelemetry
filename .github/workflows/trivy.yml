@@ -1,0 +1,24 @@
+name: Trivy Security Scan
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  Trivy:
+    permissions:
+      contents: read
+      security-events: write
+    uses: gideonogegaorg/DevOps/.github/workflows/security-trivy.yml@main
+    with:
+      skip_dirs: coverage,bin,obj,nupkgs,tst/TestApps/otel-out
+      # Findings are reported to the Security tab; the scan completing is the gate.
+      fail_on_findings: "false"

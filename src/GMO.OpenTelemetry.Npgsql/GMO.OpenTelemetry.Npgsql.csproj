@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Npgsql 10 ships net8.0+ only; there is no net48 build. -->
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PackageId>GMO.OpenTelemetry.Npgsql</PackageId>
+    <Description>Npgsql (PostgreSQL) instrumentation with enrichment for GMO.OpenTelemetry (.NET 8/9/10).</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Npgsql.OpenTelemetry" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GMO.OpenTelemetry\GMO.OpenTelemetry.csproj" />
+  </ItemGroup>
+
+</Project>

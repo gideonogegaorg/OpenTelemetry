@@ -1,0 +1,34 @@
+{
+  "Telemetry": {
+    "Enabled": "^^OPENTELEMETRY_ENABLED^^",
+    "EnvironmentName": "^^OPENTELEMETRY_ENVIRONMENTNAME^^",
+    "InstanceName": "^^OPENTELEMETRY_INSTANCENAME^^",
+    "Otlp": {
+      "Endpoint": "^^OPENTELEMETRY_OTLPEXPORTENDPOINT^^",
+      "Headers": "^^OPENTELEMETRY_HEADERS^^",
+      "Protocol": "Grpc"
+    },
+    "EnableLogging": true,
+    "EnableHttpInstrumentation": true,
+    "EnableHttpRecordException": true,
+    "EnableSqlInstrumentation": true,
+    "EnableSqlInstrumentationText": true,
+    "EnableConsole": false,
+    "EnableGzipCompression": true,
+    "IncludeSourceLocation": true,
+    "IncludeThreadInfo": true,
+    "IncludeUserInfo": false,
+    "SendOverflowLogs": true,
+    "MaxAttributeValueLength": 4000,
+    "MaxLogMessageLength": 2048,
+    "LoggingEndpoint": "^^OPENTELEMETRY_LOGGINGENDPOINT^^",
+    "MetricsEndpoint": "^^OPENTELEMETRY_METRICSENDPOINT^^",
+    "TraceSourceNames": [ "^^OPENTELEMETRY_SERVICENAME^^" ],
+    "MeterSourceNames": [ "^^OPENTELEMETRY_SERVICENAME^^", "GMO.OpenTelemetry.metrics" ],
+    "SqlConnectionString": "^^OPENTELEMETRY_SQLCONNECTIONSTRING^^"
+  },
+  "Serilog": {
+    "MinimumLevel": "Information",
+    "Enrich": [ "FromLogContext" ]
+  }
+}

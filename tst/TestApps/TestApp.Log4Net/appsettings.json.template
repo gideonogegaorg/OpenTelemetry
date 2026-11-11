@@ -1,0 +1,13 @@
+{
+  "Telemetry": {
+    "Enabled": true,
+    "EnableLogging": true,
+    "EnvironmentName": "dev",
+    "EnableSqlInstrumentation": false,
+    "EnableConsole": false,
+    "SendOverflowLogs": true,
+    "MaxLogMessageLength": 2048,
+    "EnableGzipCompression": true
+  },
+  "Serilog": { "MinimumLevel": "Information", "Enrich": [ "FromLogContext" ] }
+}

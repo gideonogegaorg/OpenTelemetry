@@ -1,0 +1,16 @@
+<Project>
+  <!-- Shared package metadata (GMO fork). CI overrides Version/AssemblyVersion/etc. -->
+  <PropertyGroup>
+    <Authors>Gideon Ogega</Authors>
+    <Company>Gideon Ogega</Company>
+    <RepositoryUrl>https://github.com/gideonogegaorg/OpenTelemetry</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/gideonogegaorg/OpenTelemetry</PackageProjectUrl>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+</Project>

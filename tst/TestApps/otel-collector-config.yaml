@@ -1,0 +1,29 @@
+# OpenTelemetry Collector config for local TestApp validation.
+# Receives OTLP on 4317 (gRPC) and 4318 (HTTP/protobuf) and writes every signal to
+# /output/otel.json (bind-mounted to ./otel-out), plus a detailed debug dump to the
+# collector log (visible via `docker compose logs`).
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+exporters:
+  file:
+    path: /output/otel.json
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [file, debug]
+    metrics:
+      receivers: [otlp]
+      exporters: [file, debug]
+    logs:
+      receivers: [otlp]
+      exporters: [file, debug]

@@ -16,7 +16,7 @@ namespace GMO.OpenTelemetry
     {
         private const string CorrelationIdKey = "CorrelationId";
         private readonly ICorrelationIdService? _correlationIdService;
-        private readonly IOpenTelemetryOptions _options;
+        private readonly IOpenTelemetryOptions? _options;
         private readonly string[] _logExclusions;
 
         private static readonly string[] DefaultLogExclusions = new[]
@@ -44,61 +44,58 @@ namespace GMO.OpenTelemetry
             _options = options;
 
             _logExclusions = DefaultLogExclusions
-                .Concat(options?.LogStackExclusions ?? new string[0])
+                .Concat(options?.LogStackExclusions ?? Array.Empty<string>())
                 .ToArray();
         }
 
         public Dictionary<string, object> Enrich(Activity? activity = null)
         {
-            var attributes = new Dictionary<string, object>(_options?.Attributes ?? new Dictionary<string, object>());
-
-            // Add OpenTelemetry trace context
-            if (activity == null)
-                activity = Activity.Current;
-
-            if (activity != null)
+            try
             {
-                attributes["trace.id"] = activity.TraceId.ToString();
-                attributes["span.id"] = activity.SpanId.ToString();
-                attributes["operation.name"] = activity.GetRoot()?.DisplayName ?? string.Empty;
+                var attributes = new Dictionary<string, object>(_options?.Attributes ?? new Dictionary<string, object>());
 
-                var correlationId = GetCorrelationId(activity);
-                if (!string.IsNullOrEmpty(correlationId))
+                if (activity == null)
+                    activity = Activity.Current;
+
+                if (activity != null)
                 {
-                    attributes[CorrelationIdKey] = correlationId;
-                }
-            }
+                    attributes["trace.id"] = activity.TraceId.ToString();
+                    attributes["span.id"] = activity.SpanId.ToString();
+                    attributes["operation.name"] = activity.GetRoot()?.DisplayName ?? string.Empty;
 
-            // Add thread information
-            if (_options!.IncludeThreadInfo)
-            {
-                attributes["thread.id"] = System.Threading.Thread.CurrentThread.ManagedThreadId.ToString();
-                attributes["thread.name"] = System.Threading.Thread.CurrentThread.Name ?? "Unknown";
-            }
-
-            // Add user identity
-            if (_options.IncludeUserInfo)
-            {
-                var userIdentity = GetUserIdentity();
-                if (!string.IsNullOrEmpty(userIdentity))
-                {
-                    attributes["user.identity"] = userIdentity;
+                    var correlationId = GetCorrelationId(activity);
+                    if (!string.IsNullOrEmpty(correlationId))
+                    {
+                        attributes[CorrelationIdKey] = correlationId!;
+                    }
                 }
 
-                var appDomain = GetAppDomain();
-                if (!string.IsNullOrEmpty(appDomain))
+                if (_options?.IncludeThreadInfo == true)
                 {
-                    attributes["app.domain"] = appDomain;
+                    attributes["thread.id"] = Environment.CurrentManagedThreadId.ToString();
+                    attributes["thread.name"] = System.Threading.Thread.CurrentThread.Name ?? "Unknown";
                 }
-            }
 
-            // Add source location information
-            if (_options.IncludeSourceLocation)
+                if (_options?.IncludeUserInfo == true)
+                {
+                    var userIdentity = GetUserIdentity();
+                    if (!string.IsNullOrEmpty(userIdentity))
+                        attributes["user.identity"] = userIdentity!;
+
+                    var appDomain = GetAppDomain();
+                    if (!string.IsNullOrEmpty(appDomain))
+                        attributes["app.domain"] = appDomain!;
+                }
+
+                if (_options?.IncludeSourceLocation == true)
+                    AddSourceLocationAttributes(attributes);
+
+                return attributes;
+            }
+            catch
             {
-                AddSourceLocationAttributes(attributes);
+                return new Dictionary<string, object>();
             }
-
-            return attributes;
         }
 
         public string? GetCorrelationId(Activity? activity = null)
@@ -106,23 +103,16 @@ namespace GMO.OpenTelemetry
             return _correlationIdService?.GetCorrelationId();
         }
 
-        private string? GetUserIdentity()
+        private static string? GetUserIdentity()
         {
             try
             {
                 var currentPrincipal = System.Threading.Thread.CurrentPrincipal;
                 if (currentPrincipal?.Identity != null && !string.IsNullOrEmpty(currentPrincipal.Identity.Name))
-                {
                     return currentPrincipal.Identity.Name;
-                }
 
                 var environmentUser = System.Environment.UserName;
-                if (!string.IsNullOrEmpty(environmentUser))
-                {
-                    return environmentUser;
-                }
-
-                return null;
+                return string.IsNullOrEmpty(environmentUser) ? null : environmentUser;
             }
             catch
             {
@@ -130,11 +120,11 @@ namespace GMO.OpenTelemetry
             }
         }
 
-        private string? GetAppDomain()
+        private static string? GetAppDomain()
         {
             try
             {
-                return System.AppDomain.CurrentDomain?.FriendlyName;
+                return System.AppDomain.CurrentDomain.FriendlyName;
             }
             catch
             {
@@ -146,52 +136,47 @@ namespace GMO.OpenTelemetry
         {
             try
             {
-                var stackTrace = new StackTrace(true);
-                StackFrame? sourceFrame = null;
+                var sourceFrame = TryGetSourceFrame(new StackTrace(true));
+                if (sourceFrame == null) return;
 
-                for (int i = 0; i < stackTrace.FrameCount; i++)
-                {
-                    var frame = stackTrace.GetFrame(i);
-                    var method = frame?.GetMethod();
+                var method = sourceFrame.GetMethod();
 
-                    if (method != null)
-                    {
-                        var declaringType = method.DeclaringType;
-                        var fullTypeName = declaringType?.FullName ?? string.Empty;
+                var className = method?.DeclaringType?.FullName;
+                if (!string.IsNullOrEmpty(className))
+                    attributes["source.class"] = className!;
 
-                        if (!ExcludeNamespaceOrType(fullTypeName))
-                        {
-                            sourceFrame = frame;
-                            break;
-                        }
-                    }
-                }
+                var methodName = method?.Name;
+                if (!string.IsNullOrEmpty(methodName))
+                    attributes["source.method"] = methodName!;
 
-                if (sourceFrame != null)
-                {
-                    var method = sourceFrame.GetMethod();
+                var fileName = sourceFrame.GetFileName();
+                if (!string.IsNullOrEmpty(fileName))
+                    attributes["source.file"] = fileName!;
 
-                    var className = method?.DeclaringType?.FullName;
-                    if (!string.IsNullOrEmpty(className))
-                        attributes["source.class"] = className;
-
-                    var methodName = method?.Name;
-                    if (!string.IsNullOrEmpty(methodName))
-                        attributes["source.method"] = methodName;
-
-                    var fileName = sourceFrame.GetFileName();
-                    if (!string.IsNullOrEmpty(fileName))
-                        attributes["source.file"] = fileName;
-
-                    var lineNumber = sourceFrame.GetFileLineNumber();
-                    if (lineNumber > 0)
-                        attributes["source.line"] = lineNumber.ToString();
-                }
+                var lineNumber = sourceFrame.GetFileLineNumber();
+                if (lineNumber > 0)
+                    attributes["source.line"] = lineNumber.ToString();
             }
             catch
             {
                 // Silently ignore stack trace errors
             }
+        }
+
+        private StackFrame? TryGetSourceFrame(StackTrace stackTrace)
+        {
+            for (int i = 0; i < stackTrace.FrameCount; i++)
+            {
+                var frame = stackTrace.GetFrame(i);
+                var method = frame?.GetMethod();
+                if (method == null) continue;
+
+                var fullTypeName = method.DeclaringType?.FullName ?? string.Empty;
+                if (!ExcludeNamespaceOrType(fullTypeName))
+                    return frame;
+            }
+
+            return null;
         }
 
         private bool ExcludeNamespaceOrType(string fullTypeName)

@@ -28,7 +28,8 @@ namespace GMO.OpenTelemetry
         {
             try
             {
-                _logger.Log(_logLevel, "Starting activity {ActivityName}", activityName);
+                if (_logger.IsEnabled(_logLevel))
+                    _logger.Log(_logLevel, "Starting activity {ActivityName}", activityName);
             }
             catch
             {
@@ -43,7 +44,8 @@ namespace GMO.OpenTelemetry
         {
             try
             {
-                _logger.Log(_logLevel, "Completed activity {ActivityName} with status {Status}", activityName, status);
+                if (_logger.IsEnabled(_logLevel))
+                    _logger.Log(_logLevel, "Completed activity {ActivityName} with status {Status}", activityName, status);
             }
             catch
             {
@@ -54,11 +56,12 @@ namespace GMO.OpenTelemetry
         /// <summary>
         /// Logs an exception that occurred during an activity
         /// </summary>
-        public void LogException(string activityName, System.Exception ex)
+        public void LogException(string activityName, System.Exception ex, string? message = null)
         {
             try
             {
-                _logger.LogError(ex, "Exception in activity {ActivityName}", activityName);
+                if (_logger.IsEnabled(LogLevel.Error))
+                    _logger.LogError(ex, "Exception in activity {ActivityName}: {Message}", activityName, message ?? ex.Message);
             }
             catch
             {

@@ -7,3 +7,23 @@ obj/
 /packages/
 *.nupkg
 nupkgs/
+
+# TestApps local secrets (committed *.template counterparts)
+**/TestApps/**/appsettings.json
+**/TestApps/**/Web.config
+**/TestApps/**/App.config
+
+# Local diagnostics / validation artifacts
+/working/
+.dccache
+
+# TestApp OTLP collector output (docker compose validation)
+**/TestApps/otel-out/
+
+# Test run + coverage output (CI collects these as job artifacts, not via git)
+/coverage/
+**/TestResults/
+*.trx
+*.coverage
+
+logs/

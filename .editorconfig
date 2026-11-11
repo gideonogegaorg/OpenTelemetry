@@ -1,3 +1,25 @@
+root = true
+
+# All files
+[*]
+indent_style = space
+
+# Xml files
+[*.xml]
+indent_size = 2
+
+# Xml project files
+[*.{csproj,fsproj,vbproj,proj,slnx}]
+indent_size = 2
+
+# Xml config files
+[*.{props,targets,config,nuspec,runsettings}]
+indent_size = 2
+
+# JSON files
+[*.{json,jsonc}]
+indent_size = 2
+
 # .NET coding conventions
 [*.cs]
 indent_style = space

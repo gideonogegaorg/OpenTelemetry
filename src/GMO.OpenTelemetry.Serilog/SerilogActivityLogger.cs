@@ -55,11 +55,11 @@ namespace GMO.OpenTelemetry.Serilog
         /// <summary>
         /// Logs an exception that occurred during an activity
         /// </summary>
-        public void LogException(string activityName, System.Exception ex)
+        public void LogException(string activityName, System.Exception ex, string? message = null)
         {
             try
             {
-                _logger.Write(LogEventLevel.Error, ex, "Exception in activity {ActivityName}", activityName);
+                _logger.Write(LogEventLevel.Error, ex, message ?? "Exception in activity {ActivityName}", activityName);
             }
             catch
             {

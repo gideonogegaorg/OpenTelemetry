@@ -1,4 +1,5 @@
-﻿using Serilog.Core;
+﻿using System;
+using Serilog.Core;
 using Serilog.Events;
 
 namespace GMO.OpenTelemetry.Serilog
@@ -7,8 +8,10 @@ namespace GMO.OpenTelemetry.Serilog
     {
         public const string LevelProp = "level";
 
-        // Static service locator pattern for Serilog compatibility
-        private static IAttributeEnricher? _attributeEnricher;
+        // Static service locator pattern for Serilog compatibility.
+        // volatile: logging may be configured off the main thread, and a stale null here silently
+        // skips enrichment rather than failing.
+        private static volatile IAttributeEnricher? _attributeEnricher;
 
         // Parameterless constructor required by Serilog
         public OpenTelemetryEnricher()
@@ -21,64 +24,33 @@ namespace GMO.OpenTelemetry.Serilog
             _attributeEnricher = attributeEnricher;
         }
 
-        public void Enrich(LogEvent logEvent, ILogEventPropertyFactory factory)
+        public void Enrich(LogEvent logEvent, ILogEventPropertyFactory propertyFactory)
         {
-            // Add log level
-            if (!logEvent.Properties.ContainsKey(LevelProp))
-            {
-                var levelProp = factory.CreateProperty(LevelProp, logEvent.Level.ToString());
-                logEvent.AddPropertyIfAbsent(levelProp);
-            }
-
-            // Only enrich if the service is configured
-            if (_attributeEnricher != null)
-            {
-                // Use shared enrichment service with source location enabled for Serilog
-                var attributes = _attributeEnricher.Enrich();
-
-                // Add all enriched attributes to the log event
-                foreach (var attr in attributes)
-                {
-                    var prop = factory.CreateProperty(attr.Key, attr.Value);
-                    logEvent.AddOrUpdateProperty(prop);
-                }
-
-                // Add custom properties from logging context
-                AddCustomProperties(logEvent, factory, attributes.Keys);
-            }
-        }
-
-        private void AddCustomProperties(LogEvent logEvent, ILogEventPropertyFactory factory, ICollection<string> existingKeys)
-        {
+            // Whole body guarded: enrichment runs on the caller's thread, so nothing here may surface
+            // as a failure of the operation being logged.
             try
             {
-                var reservedKeys = new HashSet<string>(existingKeys, StringComparer.OrdinalIgnoreCase)
+                if (!logEvent.Properties.ContainsKey(LevelProp))
                 {
-                    LevelProp // Also exclude the level property we added
-                };
+                    var levelProp = propertyFactory.CreateProperty(LevelProp, logEvent.Level.ToString());
+                    logEvent.AddPropertyIfAbsent(levelProp);
+                }
 
-                foreach (var property in logEvent.Properties)
+                if (_attributeEnricher == null) return;
+
+                var attributes = _attributeEnricher.Enrich();
+                if (attributes == null) return;
+
+                foreach (var attr in attributes)
                 {
-                    var key = property.Key;
-
-                    if (!key.StartsWith("Serilog") && !reservedKeys.Contains(key))
-                    {
-                        var prefixedKey = $"property.{key}";
-                        if (!logEvent.Properties.ContainsKey(prefixedKey))
-                        {
-                            var value = property.Value?.ToString();
-                            if (!string.IsNullOrEmpty(value))
-                            {
-                                var customProp = factory.CreateProperty(prefixedKey, value);
-                                logEvent.AddOrUpdateProperty(customProp);
-                            }
-                        }
-                    }
+                    var prop = propertyFactory.CreateProperty(attr.Key, attr.Value);
+                    logEvent.AddOrUpdateProperty(prop);
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Silently ignore custom property errors
+                GmoTelemetryEventSource.Log.OperationFailed(nameof(OpenTelemetryEnricher),
+                    "enriching log event", GmoTelemetryEventSource.Describe(ex));
             }
         }
     }

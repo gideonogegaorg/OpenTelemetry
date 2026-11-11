@@ -26,6 +26,6 @@ namespace GMO.OpenTelemetry
         /// </summary>
         /// <param name="activityName">Name of the activity</param>
         /// <param name="ex">The exception to log</param>
-        void LogException(string activityName, Exception ex);
+        void LogException(string activityName, Exception ex, string? message = null);
     }
 }

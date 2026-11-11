@@ -11,7 +11,7 @@ namespace GMO.OpenTelemetry
     /// </summary>
     public class RootActivityWrapper : ActivityWrapper
     {
-        private Activity? _parent;
+        private Activity? _parent = null;
         private bool _isCreated = false;
 
         /// <summary>
@@ -22,87 +22,107 @@ namespace GMO.OpenTelemetry
         /// <summary>
         /// Creates a new RootActivityWrapper
         /// </summary>
-        /// <param name="rootOperationName">Name of the root operation</param>
-        /// <param name="activitySource">The ActivitySource to create activities from</param>
-        /// <param name="forceNewDetachedRoot">If true, creates a new root activity detached from current context</param>
-        /// <param name="log">Optional logger for debug logging</param>
-        /// <param name="additionalData">Additional tags to set on the activity</param>
-        /// <param name="parentContext">Optional parent context for distributed tracing</param>
-        /// <param name="activityKind">The kind of activity to create (default: Internal)</param>
         public RootActivityWrapper(
             string rootOperationName,
             ActivitySource activitySource,
-            bool forceNewDetachedRoot = false,
-            IActivityLogger? log = null,
-            Dictionary<string, object>? additionalData = null,
-            ActivityContext? parentContext = null,
-            ActivityKind activityKind = ActivityKind.Internal)
-            : base(rootOperationName, activitySource, log, forceNewDetachedRoot, additionalData, parentContext, activityKind)
+            ActivityOptions? options = null)
+            : base(rootOperationName, activitySource, options)
         {
+            Initialize();
         }
 
         protected override Activity? StartActivity()
         {
             _parent = Activity.Current;
 
-            Func<Activity?> create = () =>
-            {
-                _isCreated = true;
-
-                var links = new List<ActivityLink>();
-
-                // Remote trace - link to parent context if provided
-                if (_parentContext != default)
-                    links.Add(new ActivityLink(_parentContext));
-
-                // Local parent trace - link to existing parent if different from parent context
-                if (_parent != null && _parent.Context != _parentContext)
-                    links.Add(new ActivityLink(_parent.Context));
-
-                return _activitySource.StartActivity(
-                    _operationName,
-                    _activityKind,
-                    parentContext: _parentContext,
-                    tags: null,
-                    links: links.Count > 0 ? links : null
-                );
-            };
-
-            // If need a detached root, then create a new one
             if (_forceNewDetachedRoot)
             {
                 // Force creating new Activity without parent by clearing Activity.Current
                 // See: https://github.com/open-telemetry/opentelemetry-dotnet/issues/984
                 Activity.Current = null;
-                Root = create();
+                Root = CreateRoot();
             }
-            else // Rename the existing root to expected root operation name
+            else
             {
-                Root = ActivityExtensions.GetRoot() ?? create();
-                if (Root != null) Root.DisplayName = _operationName;
+                Root = ActivityExtensions.GetRoot() ?? CreateRoot();
+                AdoptRoot();
             }
 
             return Root;
         }
 
-        public override void Dispose()
+        private Activity? CreateRoot()
         {
-            if (Root != null)
-            {
-                if (Root.Status == ActivityStatusCode.Unset)
-                    Root.SetStatus(ActivityStatusCode.Ok);
-            }
+            _isCreated = true;
 
-            LogActivityEnd();
+            var links = BuildLinks();
+            return _activitySource.StartActivity(
+                _operationName,
+                _activityKind,
+                parentContext: _parentContext,
+                tags: null,
+                links: links
+            );
+        }
 
-            if (Root != null)
+        private List<ActivityLink>? BuildLinks()
+        {
+            var links = new List<ActivityLink>();
+
+            // Remote trace - link to parent context if provided
+            if (_parentContext != default)
+                links.Add(new ActivityLink(_parentContext));
+
+            // Never link the local parent: a root is only created here when there is none or when
+            // detaching, and on .NET Framework 4.8 that link makes a detached root inherit the parent's TraceId.
+
+            // Caller-supplied links are additive - a root span already links its parent context.
+            if (_links != null) links.AddRange(_links);
+
+            return links.Count > 0 ? links : null;
+        }
+
+        /// <summary>Renames the ambient root this wrapper is taking over. Reusing one skips
+        /// <see cref="CreateRoot"/>, where links are attached, so they are applied here instead - without
+        /// this the caller's Links are silently dropped on the default (non-detached) path.</summary>
+        private void AdoptRoot()
+        {
+            if (Root == null) return;
+
+            Root.DisplayName = _operationName;
+
+            if (_isCreated || _links == null) return;
+
+            foreach (var link in _links) Root.AddLink(link);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (!disposing) return;
+
+            try
             {
-                if (_isCreated)
+                if (MarkSuccessOnDispose) MarkSucceeded();
+
+                LogActivityEnd();
+
+                if (Root != null && _isCreated)
                     Root.Dispose();
             }
+            catch
+            {
+                // Suppress activity disposal errors to avoid breaking the caller
+            }
+            finally
+            {
+                // Always restore parent activity context
+                Activity.Current = _parent;
 
-            // Restore parent activity context
-            Activity.Current = _parent;
+                // Null out shared fields so base.Dispose is a safe no-op
+                _activity = null;
+                _log = null;
+                base.Dispose(disposing);
+            }
         }
     }
 }

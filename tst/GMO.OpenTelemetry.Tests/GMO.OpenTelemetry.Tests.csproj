@@ -1,20 +1,62 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
-	<PropertyGroup>
-		<TargetFramework>net10.0</TargetFramework>
-		<ImplicitUsings>enable</ImplicitUsings>
-		<Nullable>enable</Nullable>
-		<IsPackable>false</IsPackable>
-	</PropertyGroup>
+  <PropertyGroup>
+    <!-- Multi-targeted test matrix; net48 runs under Mono on Linux CI. -->
+    <TargetFrameworks>net48;net8.0;net9.0;net10.0</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <TestingPlatformDotnetTestSupport>false</TestingPlatformDotnetTestSupport>
+    <!-- Moq Verify(... Log(...)) expression trees trip CA1873; production code uses IsEnabled. -->
+    <NoWarn>$(NoWarn);CA1873</NoWarn>
+  </PropertyGroup>
 
-	<ItemGroup>
-		<PackageReference Include="Microsoft.NET.Test.Sdk" />
-		<PackageReference Include="xunit" />
-		<PackageReference Include="xunit.runner.visualstudio" />
-	</ItemGroup>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net48'">
+    <LangVersion>10.0</LangVersion>
+  </PropertyGroup>
 
-	<ItemGroup>
-		<ProjectReference Include="..\..\src\GMO.OpenTelemetry\GMO.OpenTelemetry.csproj" />
-	</ItemGroup>
+  <PropertyGroup Condition="'$(TargetFramework)' != 'net48'">
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="JunitXml.TestLogger">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Moq" />
+    <PackageReference Include="xunit.v3.core.mtp-off" />
+    <PackageReference Include="xunit.v3.assert" />
+    <PackageReference Include="xunit.analyzers">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="xunit.runner.visualstudio">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- Microsoft.Extensions.Hosting is modern-only (not net48). -->
+  <ItemGroup Condition="'$(TargetFramework)' != 'net48'">
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\GMO.OpenTelemetry\GMO.OpenTelemetry.csproj" />
+    <ProjectReference Include="..\..\src\GMO.OpenTelemetry.Serilog\GMO.OpenTelemetry.Serilog.csproj" />
+    <ProjectReference Include="..\..\src\GMO.OpenTelemetry.SqlClient\GMO.OpenTelemetry.SqlClient.csproj" />
+    <ProjectReference Include="..\..\src\GMO.OpenTelemetry.Log4Net\GMO.OpenTelemetry.Log4Net.csproj" />
+  </ItemGroup>
+
+  <!-- Npgsql 10 has no net48 build. -->
+  <ItemGroup Condition="'$(TargetFramework)' != 'net48'">
+    <ProjectReference Include="..\..\src\GMO.OpenTelemetry.Npgsql\GMO.OpenTelemetry.Npgsql.csproj" />
+  </ItemGroup>
 
 </Project>
