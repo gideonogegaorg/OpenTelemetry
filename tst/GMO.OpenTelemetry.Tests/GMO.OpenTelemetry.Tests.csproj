@@ -50,6 +50,10 @@
     <ProjectReference Include="..\..\src\GMO.OpenTelemetry.Log4Net\GMO.OpenTelemetry.Log4Net.csproj" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <Reference Include="System.Web" />
+  </ItemGroup>
+
   <!-- Npgsql 10 has no net48 build. -->
   <ItemGroup Condition="'$(TargetFramework)' != 'net48'">
     <ProjectReference Include="..\..\src\GMO.OpenTelemetry.Npgsql\GMO.OpenTelemetry.Npgsql.csproj" />

@@ -94,3 +94,7 @@ Packages. net48 runs on the Linux runner via `mono-complete`. See
 3. **TestApps validated** against the local collector — traces, metrics, and logs all arrive for each
    app x framework ([docs/development.md](docs/development.md#validate-against-a-local-collector)).
 4. **Docs and code comments updated** to match the change.
+5. **Zero new SonarCloud issues** on the PR, info level included; a passing quality gate is not enough.
+   Fix before merging. List them with `curl.exe -4 -s "https://sonarcloud.io/api/issues/search?componentKeys=gideonogegaorg_OpenTelemetry&pullRequest=<N>&resolved=false"`.
+   Locally, `dotnet format src/GMO.OpenTelemetry.sln --verify-no-changes --severity info` surfaces the
+   Roslyn ones, but also reports naming (IDE1006) and lambda (IDE0350) suggestions Sonar does not import.

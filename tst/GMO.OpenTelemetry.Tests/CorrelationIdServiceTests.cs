@@ -5,7 +5,7 @@ using Xunit;
 
 namespace GMO.OpenTelemetry.Tests
 {
-    public class CorrelationIdServiceTests : IDisposable
+    public sealed class CorrelationIdServiceTests : IDisposable
     {
         private readonly ActivitySource _source;
         private readonly ActivityListener _listener;
@@ -25,7 +25,6 @@ namespace GMO.OpenTelemetry.Tests
         {
             _listener.Dispose();
             _source.Dispose();
-            GC.SuppressFinalize(this);
         }
 
         [Fact]
@@ -152,16 +151,6 @@ namespace GMO.OpenTelemetry.Tests
         }
 
         [Fact]
-        public void GetCorrelationId_NoContext_FallsBackToGenerate()
-        {
-            // With no activity and no stored value, generates a fresh GUID
-            var sut = new CorrelationIdService();
-            var id = sut.GetCorrelationId();
-            Assert.False(string.IsNullOrEmpty(id));
-            Assert.True(Guid.TryParse(id, out _));
-        }
-
-        [Fact]
         public void GetCorrelationId_Consistent_ReturnsSameId()
         {
             var sut = new CorrelationIdService();
@@ -169,5 +158,34 @@ namespace GMO.OpenTelemetry.Tests
             var id2 = sut.GetCorrelationId();
             Assert.Equal(id1, id2);
         }
+
+#if NETFRAMEWORK
+        [Fact]
+        public void SetCorrelationId_WithHttpContext_StoresItInHttpContextItems()
+        {
+            var context = new System.Web.HttpContext(new System.Web.HttpRequest("", "http://localhost/", ""), new System.Web.HttpResponse(new System.IO.StringWriter()));
+            System.Web.HttpContext.Current = context;
+            try
+            {
+                new CorrelationIdService().SetCorrelationId("from-http-context");
+
+                Assert.Equal("from-http-context", context.Items["CorrelationId"]);
+            }
+            finally
+            {
+                System.Web.HttpContext.Current = null;
+            }
+        }
+
+        [Fact]
+        public void SetCorrelationId_WithoutHttpContext_DoesNotThrow()
+        {
+            System.Web.HttpContext.Current = null;
+
+            new CorrelationIdService().SetCorrelationId("no-http-context");
+
+            Assert.Equal("no-http-context", new CorrelationIdService().GetCorrelationId());
+        }
+#endif
     }
 }

@@ -142,11 +142,7 @@ namespace GMO.OpenTelemetry
             // Set in CallContext for async flow
             CallContext.LogicalSetData(CallContextKey, correlationId);
 
-            // Set in HttpContext if available
-            if (HttpContext.Current != null)
-            {
-                HttpContext.Current.Items[CorrelationIdKey] = correlationId;
-            }
+            HttpContext.Current?.Items[CorrelationIdKey] = correlationId;
 #else
             // Set in AsyncLocal storage (.NET 8+)
             _correlationId.Value = correlationId;
