@@ -18,11 +18,11 @@ namespace GMO.OpenTelemetry
         private static readonly char OtlpUriPathSeparator = Path.AltDirectorySeparatorChar;
 
         private static readonly string[] ExistingOtlpSignalPaths =
-        {
+        [
             OtlpUriPathSeparator + "v1/traces",
             OtlpUriPathSeparator + "v1/metrics",
             OtlpUriPathSeparator + "v1/logs",
-        };
+        ];
 
 #if NET
         public static IOpenTelemetryBuilder AddGmoOpenTelemetry(
@@ -224,7 +224,7 @@ namespace GMO.OpenTelemetry
             var matching = ExistingOtlpSignalPaths.FirstOrDefault(
                 suffix => path.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
             if (matching != null)
-                path = path.Substring(0, path.Length - matching.Length).TrimEnd(OtlpUriPathSeparator);
+                path = path[..^matching.Length].TrimEnd(OtlpUriPathSeparator);
 
             builder.Path = path + signalPath;
             return builder.Uri;
@@ -334,9 +334,9 @@ namespace GMO.OpenTelemetry
         {
             (options as OpenTelemetryOptionsBase)?.ThrowIfEndpointsMalformed();
 
-            var endpoint = options.MetricsEndpoint ?? options.ResolveOtlpEndpoint(OtlpSignal.Metrics);
-            if (endpoint == null)
-                throw OtlpEnvironment.MissingEndpoint("Metrics", "Telemetry:MeterSourceNames to an empty array",
+            var endpoint = options.MetricsEndpoint
+                ?? options.ResolveOtlpEndpoint(OtlpSignal.Metrics)
+                ?? throw OtlpEnvironment.MissingEndpoint("Metrics", "Telemetry:MeterSourceNames to an empty array",
                     "Telemetry:MetricsEndpoint",
                     "Telemetry:Otlp:Endpoint",
                     OtlpEnvironment.Variable(OtlpSignal.Metrics, "ENDPOINT"),

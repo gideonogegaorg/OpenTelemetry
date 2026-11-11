@@ -18,7 +18,11 @@ namespace GMO.OpenTelemetry.Log4Net
         public static void StartTelemetryDiagnostics(this ILog log)
         {
             // Extension methods do not throw on a null receiver, so this has to be explicit.
+#if NET6_0_OR_GREATER
+            ArgumentNullException.ThrowIfNull(log);
+#else
             if (log == null) throw new ArgumentNullException(nameof(log));
+#endif
 
             TelemetryDiagnostics.WriteTo(problem => Write(log, problem));
         }

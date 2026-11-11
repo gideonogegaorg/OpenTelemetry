@@ -29,7 +29,7 @@ namespace GMO.OpenTelemetry
             var start = 0;
             while (start < text.Length && char.IsWhiteSpace(text[start]))
                 start++;
-            if (start == text.Length || text[start] != '{' || text[text.Length - 1] != '}')
+            if (start == text.Length || text[start] != '{' || text[^1] != '}')
                 return null;
 
             try

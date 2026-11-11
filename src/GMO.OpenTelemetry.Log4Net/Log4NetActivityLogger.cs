@@ -6,21 +6,12 @@ namespace GMO.OpenTelemetry.Log4Net
     /// <summary>
     /// log4net adapter for IActivityLogger interface
     /// </summary>
-    public class Log4NetActivityLogger : IActivityLogger
+    /// <param name="log">The log4net ILog instance</param>
+    /// <param name="logLevel">The log level to use for activity logging (default: Info)</param>
+    public class Log4NetActivityLogger(ILog log, Level? logLevel = null) : IActivityLogger
     {
-        private readonly ILog _log;
-        private readonly Level _logLevel;
-
-        /// <summary>
-        /// Creates a new Log4NetActivityLogger
-        /// </summary>
-        /// <param name="log">The log4net ILog instance</param>
-        /// <param name="logLevel">The log level to use for activity logging (default: Info)</param>
-        public Log4NetActivityLogger(ILog log, Level? logLevel = null)
-        {
-            _log = log ?? throw new System.ArgumentNullException(nameof(log));
-            _logLevel = logLevel ?? Level.Info;
-        }
+        private readonly ILog _log = log ?? throw new System.ArgumentNullException(nameof(log));
+        private readonly Level _logLevel = logLevel ?? Level.Info;
 
         /// <summary>
         /// Logs when an activity starts

@@ -5,15 +5,10 @@ using OpenTelemetry;
 
 namespace GMO.OpenTelemetry
 {
-    public class CorrelationIdProcessor : BaseProcessor<Activity>
+    public class CorrelationIdProcessor(IServiceProvider serviceProvider) : BaseProcessor<Activity>
     {
         private const string CorrelationIdKey = "CorrelationId";
-        private readonly IServiceProvider _serviceProvider;
-
-        public CorrelationIdProcessor(IServiceProvider serviceProvider)
-        {
-            _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-        }
+        private readonly IServiceProvider _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
 
         public override void OnStart(Activity activity)
         {

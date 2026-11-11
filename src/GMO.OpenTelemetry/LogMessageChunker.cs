@@ -9,15 +9,15 @@ namespace GMO.OpenTelemetry
         {
             var chunks = new List<string>();
 
-            if (string.IsNullOrEmpty(message))
+            if (Strings.IsNullOrEmpty(message))
             {
                 chunks.Add(string.Empty);
                 return chunks;
             }
 
-            if (maxLength <= 0 || message!.Length <= maxLength)
+            if (maxLength <= 0 || message.Length <= maxLength)
             {
-                chunks.Add(message!);
+                chunks.Add(message);
                 return chunks;
             }
 

@@ -12,15 +12,17 @@ namespace GMO.OpenTelemetry
         string? GetCorrelationId(Activity? activity = null);
     }
 
-    public class AttributeEnricher : IAttributeEnricher
+    public class AttributeEnricher(
+        IOpenTelemetryOptions options,
+        ICorrelationIdService? correlationIdService = null) : IAttributeEnricher
     {
         private const string CorrelationIdKey = "CorrelationId";
-        private readonly ICorrelationIdService? _correlationIdService;
-        private readonly IOpenTelemetryOptions? _options;
-        private readonly string[] _logExclusions;
+        private readonly ICorrelationIdService? _correlationIdService = correlationIdService;
+        private readonly IOpenTelemetryOptions? _options = options;
+        private readonly string[] _logExclusions = [.. DefaultLogExclusions, .. options?.LogStackExclusions ?? []];
 
-        private static readonly string[] DefaultLogExclusions = new[]
-        {
+        private static readonly string[] DefaultLogExclusions =
+        [
             "System",
             "Microsoft",
             "OpenTelemetry",
@@ -34,28 +36,15 @@ namespace GMO.OpenTelemetry
             "GMO.Utils.Maybe",
             "GMO.TaskEngine.Core.Filters.LoggingFilter",
             "GMO.Logging.LegacyLogWrapper"
-        };
-
-        public AttributeEnricher(
-            IOpenTelemetryOptions options,
-            ICorrelationIdService? correlationIdService = null)
-        {
-            _correlationIdService = correlationIdService;
-            _options = options;
-
-            _logExclusions = DefaultLogExclusions
-                .Concat(options?.LogStackExclusions ?? Array.Empty<string>())
-                .ToArray();
-        }
+        ];
 
         public Dictionary<string, object> Enrich(Activity? activity = null)
         {
             try
             {
-                var attributes = new Dictionary<string, object>(_options?.Attributes ?? new Dictionary<string, object>());
+                var attributes = new Dictionary<string, object>(_options?.Attributes ?? []);
 
-                if (activity == null)
-                    activity = Activity.Current;
+                activity ??= Activity.Current;
 
                 if (activity != null)
                 {
@@ -64,9 +53,9 @@ namespace GMO.OpenTelemetry
                     attributes["operation.name"] = activity.GetRoot()?.DisplayName ?? string.Empty;
 
                     var correlationId = GetCorrelationId(activity);
-                    if (!string.IsNullOrEmpty(correlationId))
+                    if (!Strings.IsNullOrEmpty(correlationId))
                     {
-                        attributes[CorrelationIdKey] = correlationId!;
+                        attributes[CorrelationIdKey] = correlationId;
                     }
                 }
 
@@ -79,12 +68,12 @@ namespace GMO.OpenTelemetry
                 if (_options?.IncludeUserInfo == true)
                 {
                     var userIdentity = GetUserIdentity();
-                    if (!string.IsNullOrEmpty(userIdentity))
-                        attributes["user.identity"] = userIdentity!;
+                    if (!Strings.IsNullOrEmpty(userIdentity))
+                        attributes["user.identity"] = userIdentity;
 
                     var appDomain = GetAppDomain();
-                    if (!string.IsNullOrEmpty(appDomain))
-                        attributes["app.domain"] = appDomain!;
+                    if (!Strings.IsNullOrEmpty(appDomain))
+                        attributes["app.domain"] = appDomain;
                 }
 
                 if (_options?.IncludeSourceLocation == true)
@@ -94,7 +83,7 @@ namespace GMO.OpenTelemetry
             }
             catch
             {
-                return new Dictionary<string, object>();
+                return [];
             }
         }
 
@@ -142,16 +131,16 @@ namespace GMO.OpenTelemetry
                 var method = sourceFrame.GetMethod();
 
                 var className = method?.DeclaringType?.FullName;
-                if (!string.IsNullOrEmpty(className))
-                    attributes["source.class"] = className!;
+                if (!Strings.IsNullOrEmpty(className))
+                    attributes["source.class"] = className;
 
                 var methodName = method?.Name;
-                if (!string.IsNullOrEmpty(methodName))
-                    attributes["source.method"] = methodName!;
+                if (!Strings.IsNullOrEmpty(methodName))
+                    attributes["source.method"] = methodName;
 
                 var fileName = sourceFrame.GetFileName();
-                if (!string.IsNullOrEmpty(fileName))
-                    attributes["source.file"] = fileName!;
+                if (!Strings.IsNullOrEmpty(fileName))
+                    attributes["source.file"] = fileName;
 
                 var lineNumber = sourceFrame.GetFileLineNumber();
                 if (lineNumber > 0)

@@ -14,9 +14,10 @@ namespace GMO.OpenTelemetry.Tests
 {
     public class LogAttributeLimiterTests
     {
-        private static readonly string[] BigKey = { "\"Big\"" };
+        private static readonly string[] BigKey = ["\"Big\""];
+        private static readonly string[] FirstTwoKeys = ["k0", "k1"];
 
-        private static readonly MessageTemplateParser Parser = new MessageTemplateParser();
+        private static readonly MessageTemplateParser Parser = new();
 
         [Fact]
         public void UnderBudget_ReturnsTheSameEventAndNoOverflow()
@@ -30,18 +31,18 @@ namespace GMO.OpenTelemetry.Tests
         [Fact]
         public void CountAttributes_CountsAsNewRelicStoresTheRecord()
         {
-            var nested = new StructureValue(new[]
-            {
+            var nested = new StructureValue(
+            [
                 new LogEventProperty("A", new ScalarValue(1)),
-                new LogEventProperty("List", new SequenceValue(new[] { Structure(30), Structure(40) })),
-                new LogEventProperty("Map", new DictionaryValue(new[]
-                {
+                new LogEventProperty("List", new SequenceValue([Structure(30), Structure(40)])),
+                new LogEventProperty("Map", new DictionaryValue(
+                [
                     new KeyValuePair<ScalarValue, LogEventPropertyValue>(new ScalarValue("k1"), new ScalarValue(1)),
                     new KeyValuePair<ScalarValue, LogEventPropertyValue>(new ScalarValue("k2"), Structure(2)),
-                })),
+                ])),
                 new LogEventProperty("Null", new ScalarValue(null)),
-                new LogEventProperty("Empty", new SequenceValue(Array.Empty<LogEventPropertyValue>())),
-            });
+                new LogEventProperty("Empty", new SequenceValue([])),
+            ]);
 
             // A, the list as one array, the map's three leaves and the empty list; the null is not stored.
             Assert.Equal(1 + 1 + 3 + 1, LogAttributeLimiter.CountAttributes(nested));
@@ -91,12 +92,11 @@ namespace GMO.OpenTelemetry.Tests
             var spanId = ActivitySpanId.CreateRandom();
             var logEvent = new LogEvent(DateTimeOffset.UtcNow, LogEventLevel.Warning, exception,
                 Parser.Parse("Onboarding initiated for AgencyId: {AgencyId}"),
-                new[]
-                {
+                [
                     new LogEventProperty("AgencyId", new ScalarValue(1055042)),
                     new LogEventProperty("Employee", Structure(300)),
                     new LogEventProperty("CorrelationId", new ScalarValue("c-1")),
-                },
+                ],
                 traceId, spanId);
 
             var limited = LogAttributeLimiter.Limit(logEvent, 100, 4000, out var overflow);
@@ -195,7 +195,7 @@ namespace GMO.OpenTelemetry.Tests
         [Fact]
         public void PlainOverflow_StaysWithinBudgetAndIsNotAJsonObjectMessage()
         {
-            var logEvent = Event("Saved", Enumerable.Range(0, 300).Select(i => Prop($"P{i:D3}", new ScalarValue(i))).ToArray());
+            var logEvent = Event("Saved", [.. Enumerable.Range(0, 300).Select(i => Prop($"P{i:D3}", new ScalarValue(i)))]);
 
             var limited = LogAttributeLimiter.Limit(logEvent, 100, 4000, out var overflow);
 
@@ -319,7 +319,7 @@ namespace GMO.OpenTelemetry.Tests
         [Fact]
         public void NestedLongArray_IsCutAndTheWholeValueMoves()
         {
-            var employee = new StructureValue(new[] { new LogEventProperty("Name", new ScalarValue("x")), new LogEventProperty("Ids", Sequence(70)) });
+            var employee = new StructureValue([new LogEventProperty("Name", new ScalarValue("x")), new LogEventProperty("Ids", Sequence(70))]);
             var logEvent = Event("Saved", Prop("Employee", employee));
 
             var limited = LogAttributeLimiter.Limit(logEvent, 100, 4000, out var overflow);
@@ -332,11 +332,11 @@ namespace GMO.OpenTelemetry.Tests
         [Fact]
         public void NullArrayEntries_AreDroppedWithoutAnOverflow()
         {
-            var logEvent = Event("Saved", Prop("Ids", new SequenceValue(new[] { new ScalarValue(1), new ScalarValue(null), new ScalarValue(2) })));
+            var logEvent = Event("Saved", Prop("Ids", new SequenceValue([new ScalarValue(1), new ScalarValue(null), new ScalarValue(2)])));
 
             var limited = LogAttributeLimiter.Limit(logEvent, 100, 4000, out var overflow);
 
-            Assert.Equal(new object[] { 1, 2 }, ((SequenceValue)limited.Properties["Ids"]).Elements.Select(e => ((ScalarValue)e).Value));
+            Assert.Equal([1, 2], ((SequenceValue)limited.Properties["Ids"]).Elements.Select(e => ((ScalarValue)e).Value));
             Assert.Null(overflow);
         }
 
@@ -386,11 +386,11 @@ namespace GMO.OpenTelemetry.Tests
         public void DictionaryWithALongString_KeepsAPrefixAndMovesWhole()
         {
             var body = new string('a', 2000);
-            var logEvent = Event("Saved", Prop("Map", new DictionaryValue(new[]
-            {
+            var logEvent = Event("Saved", Prop("Map", new DictionaryValue(
+            [
                 Entry("short", new ScalarValue("x")),
                 Entry("long", new ScalarValue(body)),
-            })));
+            ])));
 
             var limited = LogAttributeLimiter.Limit(logEvent, 100, LogAttributeLimiter.TopLevelBudget, 100, 1000, null, out var overflow);
 
@@ -426,7 +426,7 @@ namespace GMO.OpenTelemetry.Tests
             Assert.Equal(50, text.Length);
             Assert.NotNull(overflow);
             var moved = Moved(overflow!.RenderMessage()).GetProperty("Map");
-            Assert.Equal(new[] { "k0", "k1" }, moved.EnumerateObject().Select(p => p.Name));
+            Assert.Equal(FirstTwoKeys, moved.EnumerateObject().Select(p => p.Name));
             Assert.All(moved.EnumerateObject(), p => Assert.Equal(30, p.Value.EnumerateObject().Count()));
         }
 
@@ -494,7 +494,7 @@ namespace GMO.OpenTelemetry.Tests
         private static JsonElement Moved(string message)
         {
             Assert.StartsWith(LogAttributeLimiter.OverflowMessagePrefix, message);
-            return JsonDocument.Parse(message.Substring(LogAttributeLimiter.OverflowMessagePrefix.Length)).RootElement;
+            return JsonDocument.Parse(message[LogAttributeLimiter.OverflowMessagePrefix.Length..]).RootElement;
         }
 
         private static int CountInOverflow(LogEvent parent, LogEvent overflow, string key) =>
@@ -504,24 +504,24 @@ namespace GMO.OpenTelemetry.Tests
             ((StructureValue)parent.Properties[key]).Properties.Count + overflow.GetProperty(key).EnumerateObject().Count();
 
         private static LogEvent Event(string template, params LogEventProperty[] properties) =>
-            new LogEvent(DateTimeOffset.UtcNow, LogEventLevel.Information, null, Parser.Parse(template), properties);
+            new(DateTimeOffset.UtcNow, LogEventLevel.Information, null, Parser.Parse(template), properties);
 
-        private static LogEventProperty Prop(string name, LogEventPropertyValue value) => new LogEventProperty(name, value);
+        private static LogEventProperty Prop(string name, LogEventPropertyValue value) => new(name, value);
 
         private static SequenceValue Sequence(int count) =>
-            new SequenceValue(Enumerable.Range(0, count).Select(i => new ScalarValue(i)));
+            new(Enumerable.Range(0, count).Select(i => new ScalarValue(i)));
 
         private static string JsonObject(int fields) =>
             "{" + string.Join(",", Enumerable.Range(0, fields).Select(i => $"\"j{i}\":{i}")) + "}";
 
         private static StructureValue Structure(int fields) =>
-            new StructureValue(Enumerable.Range(0, fields).Select(i => new LogEventProperty($"F{i}", new ScalarValue(i))));
+            new(Enumerable.Range(0, fields).Select(i => new LogEventProperty($"F{i}", new ScalarValue(i))));
 
         private static KeyValuePair<ScalarValue, LogEventPropertyValue> Entry(string key, LogEventPropertyValue value) =>
-            new KeyValuePair<ScalarValue, LogEventPropertyValue>(new ScalarValue(key), value);
+            new(new ScalarValue(key), value);
 
         private static DictionaryValue Dictionary(int entries, Func<int, LogEventPropertyValue> value) =>
-            new DictionaryValue(Enumerable.Range(0, entries).Select(i => Entry("k" + i, value(i))));
+            new(Enumerable.Range(0, entries).Select(i => Entry("k" + i, value(i))));
 
         private static Dictionary<string, object?> Elements(DictionaryValue dictionary) =>
             dictionary.Elements.ToDictionary(e => (string)e.Key.Value!, e => ((ScalarValue)e.Value).Value);
@@ -532,7 +532,7 @@ namespace GMO.OpenTelemetry.Tests
 
         private sealed class CapturingSink : ILogEventSink
         {
-            public List<LogEvent> Events { get; } = new List<LogEvent>();
+            public List<LogEvent> Events { get; } = [];
 
             public void Emit(LogEvent logEvent) => Events.Add(logEvent);
         }

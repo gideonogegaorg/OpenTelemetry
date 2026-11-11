@@ -12,10 +12,6 @@
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net48'">
-    <LangVersion>9.0</LangVersion>
-  </PropertyGroup>
-
   <PropertyGroup Condition="'$(TargetFramework)' != 'net48'">
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
@@ -27,5 +23,4 @@
   <ItemGroup>
     <ProjectReference Include="..\GMO.OpenTelemetry\GMO.OpenTelemetry.csproj" />
   </ItemGroup>
-
 </Project>

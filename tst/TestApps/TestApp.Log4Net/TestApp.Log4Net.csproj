@@ -7,10 +7,6 @@
     <RootNamespace>TestApp.Log4Net</RootNamespace>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net48'">
-    <LangVersion>10.0</LangVersion>
-  </PropertyGroup>
-
   <PropertyGroup Condition="'$(TargetFramework)' != 'net48'">
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>

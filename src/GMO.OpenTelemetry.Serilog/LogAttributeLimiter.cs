@@ -73,15 +73,15 @@ namespace GMO.OpenTelemetry.Serilog
 
         // What the enrichers add for finding and joining a record. Moving it out would leave the parent
         // record unsearchable by the attributes every query filters on.
-        private static readonly HashSet<string> Context = new HashSet<string>(StringComparer.Ordinal)
+        private static readonly HashSet<string> Context = new(StringComparer.Ordinal)
         {
             "level", "SourceContext", "CorrelationId", "trace.id", "span.id", "operation.name",
             "thread.id", "thread.name", "user.identity", "app.domain",
             "source.class", "source.method", "source.file", "source.line",
         };
 
-        private static readonly JsonValueFormatter Json = new JsonValueFormatter(typeTagName: null);
-        private static readonly MessageTemplateParser TemplateParser = new MessageTemplateParser();
+        private static readonly JsonValueFormatter Json = new(typeTagName: null);
+        private static readonly MessageTemplateParser TemplateParser = new();
 
         /// <summary>The budget left for event properties once fixed and resource attributes are taken.</summary>
         internal static int PropertyBudget(int maxAttributes, int resourceAttributes)
@@ -221,7 +221,7 @@ namespace GMO.OpenTelemetry.Serilog
         }
 
         private static HashSet<string> TemplateNames(MessageTemplate template) =>
-            new HashSet<string>(template.Tokens.OfType<PropertyToken>().Select(t => t.PropertyName), StringComparer.Ordinal);
+            new(template.Tokens.OfType<PropertyToken>().Select(t => t.PropertyName), StringComparer.Ordinal);
 
         /// <summary>Shortens arrays and long strings; the full value of a non-template property moves out.</summary>
         private static void ClipAll(Work work, Limits limits)
@@ -505,49 +505,31 @@ namespace GMO.OpenTelemetry.Serilog
             TemplateParser.Parse(text.Replace("{", "{{").Replace("}", "}}"));
 
         private static string Truncate(string value, int maxLength) =>
-            maxLength > 0 && value.Length > maxLength ? value.Substring(0, maxLength) : value;
+            maxLength > 0 && value.Length > maxLength ? value[..maxLength] : value;
 
-        private readonly struct Limits
+        private readonly struct Limits(int budget, int topLevelBudget, int maxValueLength, int maxStringLength)
         {
-            public Limits(int budget, int topLevelBudget, int maxValueLength, int maxStringLength)
-            {
-                Budget = budget;
-                TopLevel = topLevelBudget;
-                MaxValueLength = maxValueLength;
-                MaxStringLength = maxStringLength;
-            }
-
-            public int Budget { get; }
-            public int TopLevel { get; }
-            public int MaxValueLength { get; }
-            public int MaxStringLength { get; }
+            public int Budget { get; } = budget;
+            public int TopLevel { get; } = topLevelBudget;
+            public int MaxValueLength { get; } = maxValueLength;
+            public int MaxStringLength { get; } = maxStringLength;
         }
 
         /// <summary>The event being limited: its template, its properties and what has moved out.</summary>
-        private sealed class Work
+        private sealed class Work(LogEvent logEvent, string? rendered, int messageFields)
         {
-            private string? _rendered;
+            private string? _rendered = rendered;
 
-            public Work(LogEvent logEvent, string? rendered, int messageFields)
-            {
-                _rendered = rendered;
-                JsonFields = messageFields;
-                Event = logEvent;
-                Template = logEvent.MessageTemplate;
-                Properties = logEvent.Properties.ToDictionary(p => p.Key, p => p.Value);
-                Original = logEvent.Properties;
-            }
-
-            public LogEvent Event { get; }
-            public MessageTemplate Template { get; private set; }
-            public Dictionary<string, LogEventPropertyValue> Properties { get; }
-            public IReadOnlyDictionary<string, LogEventPropertyValue> Original { get; }
-            public Dictionary<string, LogEventPropertyValue> Moved { get; } = new Dictionary<string, LogEventPropertyValue>();
+            public LogEvent Event { get; } = logEvent;
+            public MessageTemplate Template { get; private set; } = logEvent.MessageTemplate;
+            public Dictionary<string, LogEventPropertyValue> Properties { get; } = logEvent.Properties.ToDictionary(p => p.Key, p => p.Value);
+            public IReadOnlyDictionary<string, LogEventPropertyValue> Original { get; } = logEvent.Properties;
+            public Dictionary<string, LogEventPropertyValue> Moved { get; } = [];
 
             // Properties the template named before it was frozen: the message holds their full value.
             public HashSet<string> Frozen { get; } = new HashSet<string>(StringComparer.Ordinal);
 
-            public int JsonFields { get; private set; }
+            public int JsonFields { get; private set; } = messageFields;
 
             public int Total { get; set; }
 

@@ -6,16 +6,16 @@ namespace GMO.OpenTelemetry.Tests
 {
     public class NuGetPackageTests
     {
-        private static readonly string[] AlphaIndicators = new[] { "alpha", "beta", "rc", "preview", "-a", "-pre" };
-        private static readonly JsonSerializerOptions PrettyJson = new JsonSerializerOptions { WriteIndented = true };
+        private static readonly string[] AlphaIndicators = ["alpha", "beta", "rc", "preview", "-a", "-pre"];
+        private static readonly JsonSerializerOptions PrettyJson = new() { WriteIndented = true };
 
         /// <summary>
         /// Packages that have no stable release yet — exempted from the pre-release check.
         /// </summary>
-        public static readonly string[] ExcludedPackages = new[]
-        {
+        public static readonly string[] ExcludedPackages =
+        [
             "OpenTelemetry.Instrumentation.Process",
-        };
+        ];
 
         /// <summary>
         /// main is the release branch for this repo (equivalent to REL in other repos).
@@ -45,7 +45,7 @@ namespace GMO.OpenTelemetry.Tests
                 return;
             }
 
-            var allowed = allowedByBranch ?? Array.Empty<string>();
+            var allowed = allowedByBranch ?? [];
             var allPackages = GetNuGetPackages();
 
             var alphaPackages = allPackages
@@ -125,7 +125,7 @@ namespace GMO.OpenTelemetry.Tests
             if (packages.TryGetValue(key, out var existing))
                 existing.Add(source);
             else
-                packages[key] = new List<string> { source };
+                packages[key] = [source];
         }
     }
 }

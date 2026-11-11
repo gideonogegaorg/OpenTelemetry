@@ -1,5 +1,9 @@
 ﻿using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
+
+[assembly: SuppressMessage("Style", "IDE0130:Namespace does not match folder structure", Scope = "namespace", Target = "~N:System.Data.Entity", Justification = "A stand-in for a third-party type; the code under test recognises it by this namespace.")]
+[assembly: SuppressMessage("Style", "IDE0130:Namespace does not match folder structure", Scope = "namespace", Target = "~N:Microsoft.EntityFrameworkCore", Justification = "A stand-in for a third-party type; the code under test recognises it by this namespace.")]
 
 // Stand-ins for Entity Framework types, which the renderer and the log4net appender recognise by
 // namespace. Each counts its enumerations: enumerating a real set or query runs it against the database.

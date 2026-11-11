@@ -11,13 +11,13 @@ using SinkProtocol = Serilog.Sinks.OpenTelemetry.OtlpProtocol;
 
 namespace GMO.OpenTelemetry.Tests
 {
-    public class ChunkingOpenTelemetrySinkTests
+    public class ChunkingOpenTelemetrySinkTests(FakeOtlpReceiver receiver)
     {
         private static IConfiguration EmptyConfig() =>
             new ConfigurationBuilder().Build();
 
-        private static TestOptions BuildOptions(
-            string? endpoint = "http://localhost:4318",
+        private TestOptions BuildOptions(
+            string? endpoint = null,
             OtlpExportProtocol protocol = OtlpExportProtocol.HttpProtobuf,
             string headers = "api-key=test-key",
             int maxLogLength = 1000)
@@ -25,7 +25,7 @@ namespace GMO.OpenTelemetry.Tests
             return new TestOptions
             {
                 Enabled = true,
-                LoggingEndpoint = endpoint,
+                LoggingEndpoint = endpoint ?? receiver.LogsEndpoint,
                 HeadersOverride = headers,
                 LogsMaxBatchSize = 100,
                 LogsMaxQueueSize = 1000,
@@ -148,7 +148,7 @@ namespace GMO.OpenTelemetry.Tests
             var traceId = System.Diagnostics.ActivityTraceId.CreateRandom();
             var spanId = System.Diagnostics.ActivitySpanId.CreateRandom();
             var source = new LogEvent(DateTimeOffset.UtcNow, LogEventLevel.Information, null,
-                new MessageTemplateParser().Parse("long message"), Array.Empty<LogEventProperty>(), traceId, spanId);
+                new MessageTemplateParser().Parse("long message"), [], traceId, spanId);
 
             var chunk = ChunkingOpenTelemetrySink.BuildChunkEvent(source, "long", 0, 2);
 
@@ -171,7 +171,7 @@ namespace GMO.OpenTelemetry.Tests
             var error = new InvalidOperationException("boom");
             var source = new LogEvent(DateTimeOffset.UtcNow, LogEventLevel.Error, error,
                 new MessageTemplateParser().Parse("long message"),
-                new[] { new LogEventProperty("JobName", new ScalarValue("nightly")) });
+                [new LogEventProperty("JobName", new ScalarValue("nightly"))]);
 
             var first = ChunkingOpenTelemetrySink.BuildChunkEvent(source, "long {x}", 0, 2);
             var last = ChunkingOpenTelemetrySink.BuildChunkEvent(source, " message", 1, 2);
@@ -190,12 +190,11 @@ namespace GMO.OpenTelemetry.Tests
         {
             var source = new LogEvent(DateTimeOffset.UtcNow, LogEventLevel.Information, null,
                 new MessageTemplateParser().Parse("long message"),
-                new[]
-                {
+                [
                     new LogEventProperty("JobName", new ScalarValue("nightly")),
                     new LogEventProperty("Payload", new ScalarValue(new string('p', ChunkingOpenTelemetrySink.ChunkContextValueLength + 1))),
-                    new LogEventProperty("Employee", new StructureValue(new[] { new LogEventProperty("Id", new ScalarValue(1)) })),
-                });
+                    new LogEventProperty("Employee", new StructureValue([new LogEventProperty("Id", new ScalarValue(1))])),
+                ]);
 
             var first = ChunkingOpenTelemetrySink.BuildChunkEvent(source, "long", 0, 2, "c1");
             var second = ChunkingOpenTelemetrySink.BuildChunkEvent(source, " message", 1, 2, "c1");
@@ -212,7 +211,7 @@ namespace GMO.OpenTelemetry.Tests
         private static LogEvent BuildLogEvent(string messageText, LogEventLevel level = LogEventLevel.Information)
         {
             var template = new MessageTemplateParser().Parse(messageText);
-            return new LogEvent(DateTimeOffset.UtcNow, level, null, template, Array.Empty<LogEventProperty>());
+            return new LogEvent(DateTimeOffset.UtcNow, level, null, template, []);
         }
 
         [Fact]
@@ -230,7 +229,7 @@ namespace GMO.OpenTelemetry.Tests
         }
 
         // LoggingEndpoint="" is not null (bypasses ??) but IsNullOrWhiteSpace makes it unusable.
-        private static TestOptions NoEndpointOptions() => new TestOptions
+        private static TestOptions NoEndpointOptions() => new()
         {
             Enabled = true,
             LoggingEndpoint = "",
@@ -394,7 +393,7 @@ namespace GMO.OpenTelemetry.Tests
                 DateTimeOffset.UtcNow,
                 LogEventLevel.Error,
                 new InvalidOperationException("fail"),
-                template, Array.Empty<LogEventProperty>());
+                template, []);
             var exception = Record.Exception(() => sink.Emit(logEvent));
             Assert.Null(exception);
         }
@@ -405,7 +404,7 @@ namespace GMO.OpenTelemetry.Tests
             using var sink = new ChunkingOpenTelemetrySink(BuildOptions(), EmptyConfig());
             // An empty template produces empty string text — the sink passes it through without chunking
             var template = new MessageTemplateParser().Parse(string.Empty);
-            var logEvent = new LogEvent(DateTimeOffset.UtcNow, LogEventLevel.Information, null, template, Array.Empty<LogEventProperty>());
+            var logEvent = new LogEvent(DateTimeOffset.UtcNow, LogEventLevel.Information, null, template, []);
             Assert.Equal(string.Empty, logEvent.MessageTemplate.Text);
             var exception = Record.Exception(() => sink.Emit(logEvent));
             Assert.Null(exception);

@@ -13,7 +13,7 @@ namespace GMO.OpenTelemetry.Tests
         private readonly ActivityListener _listener;
 
         // New instance per use: ActivityOptions is mutable.
-        private static ActivityOptions Detached => new ActivityOptions { ForceNewDetachedRoot = true };
+        private static ActivityOptions Detached => new() { ForceNewDetachedRoot = true };
 
         public ActivityExecutorTests()
         {

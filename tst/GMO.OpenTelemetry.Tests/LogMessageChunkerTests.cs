@@ -4,8 +4,8 @@ namespace GMO.OpenTelemetry.Tests
 {
     public class LogMessageChunkerTests
     {
-        private static readonly string[] EvenSplit = { "01234", "56789" };
-        private static readonly string[] RemainderSplit = { "01234", "56789", "ab" };
+        private static readonly string[] EvenSplit = ["01234", "56789"];
+        private static readonly string[] RemainderSplit = ["01234", "56789", "ab"];
 
         // Astral-plane code points: two UTF-16 units each, so they straddle chunk boundaries.
         private static readonly string Astral1 = char.ConvertFromUtf32(0x1F600);
@@ -67,7 +67,7 @@ namespace GMO.OpenTelemetry.Tests
             Assert.All(chunks, chunk =>
             {
                 Assert.NotEmpty(chunk);
-                Assert.False(char.IsHighSurrogate(chunk[chunk.Length - 1]),
+                Assert.False(char.IsHighSurrogate(chunk[^1]),
                     $"chunk '{chunk}' ends with an unpaired high surrogate");
                 Assert.False(char.IsLowSurrogate(chunk[0]),
                     $"chunk '{chunk}' starts with an unpaired low surrogate");

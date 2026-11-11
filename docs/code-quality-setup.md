@@ -91,6 +91,9 @@ Security tab under category `trivy`; the job does not fail on findings.
 
 [`.github/dependabot.yml`](../.github/dependabot.yml): weekly NuGet (root, where
 `Directory.Packages.props` holds every version; limit 10 open PRs) and GitHub Actions (limit 5).
+`OpenTelemetry*` packages arrive as one grouped PR, as do `Npgsql` + `Npgsql.OpenTelemetry`, because
+each set shares one version line. `Microsoft.Extensions.*` and `System.*` 11.x are ignored: 11.x drops
+net8.0/net9.0, which this repo targets, so those stay on the newest 10.0.x.
 Actions are pinned by commit SHA with a `# vX.Y.Z` comment; Dependabot updates both. Enable
 **Dependabot alerts** and **security updates** under Settings → Code security.
 
@@ -121,4 +124,4 @@ the direct dependency that pulls it in, or add a `PackageVersion` plus a direct 
 | Format | `dotnet format src/GMO.OpenTelemetry.sln --verify-no-changes` |
 | Vulnerabilities | `dotnet list src/GMO.OpenTelemetry.sln package --vulnerable --include-transitive` |
 | Coverage + HTML report + floor (net10.0) | `pwsh -NoProfile -File tst/Invoke-Coverage.ps1` |
-| Workflow lint | `docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.7` |
+| Workflow lint | `docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.12` |

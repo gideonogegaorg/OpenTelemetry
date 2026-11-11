@@ -154,7 +154,7 @@ Workflows default to `contents: read`; only `tag` (`contents: write`), `publish`
 `sonar` (`pull-requests: write`) and CodeQL/Trivy (`security-events: write`) escalate. Third-party
 actions are pinned by commit SHA with a `# vX.Y.Z` comment. Mono is installed by
 `.github/scripts/install-mono.sh`, which the Sonar and CodeQL workflows also run as `pre_build_script`.
-Lint workflows locally with `docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.7`.
+Lint workflows locally with `docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:1.7.12` (PowerShell). From Git Bash prefix it with `MSYS_NO_PATHCONV=1`, or MSYS rewrites `-w /repo` into a Windows path and docker rejects it.
 
 Versioning is CI-driven (`-p:Version=...`): `YYYY.MM.DD.HHMM`; `dev` packages get an `-alpha` suffix. The
 local fallback version (`1.0.0`) lives in the root `Directory.Build.props` along with shared package
@@ -162,7 +162,9 @@ metadata (authors, repository URL). Package versions are centrally managed in th
 `Directory.Packages.props`.
 
 > net48 on the Linux runners works exactly as in the upstream GitLab pipeline: install `mono-complete`
-> plus the dotnet 8/9 runtimes (the SDK image ships only the net10 runtime).
+> plus the dotnet 8/9 runtimes (the SDK image ships only the net10 runtime). CI jobs run on the pinned
+> `ubuntu-26.04` label, whose universe archive provides `mono-complete`; the reusable DevOps jobs pick
+> their own runner.
 
 ## Contributing — pre-PR checklist
 

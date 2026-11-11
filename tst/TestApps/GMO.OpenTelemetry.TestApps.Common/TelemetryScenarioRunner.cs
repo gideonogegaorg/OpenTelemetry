@@ -134,25 +134,23 @@ namespace GMO.OpenTelemetry.TestApps.Common
                 root.SetTag("testapp.scenario", "root");
                 root.AddEvent("RootStarted");
 
-                using (var child = new ActivityWrapper("TestApp.Child", _activitySource, new ActivityOptions { Log = _activityLogger }))
+                using var child = new ActivityWrapper("TestApp.Child", _activitySource, new ActivityOptions { Log = _activityLogger });
+                child.SetTag("testapp.user", new { id = 42, name = "smoke" });
+                child.SetTag("testapp.primitive", 123);
+                child.AddEvent("ChildProcessing");
+                child.SetStatus(ActivityStatusCode.Ok);
+
+                var currentRoot = Activity.Current?.GetRoot();
+                result.RootActivityName = currentRoot?.OperationName;
+
+                try
                 {
-                    child.SetTag("testapp.user", new { id = 42, name = "smoke" });
-                    child.SetTag("testapp.primitive", 123);
-                    child.AddEvent("ChildProcessing");
-                    child.SetStatus(ActivityStatusCode.Ok);
-
-                    var currentRoot = Activity.Current?.GetRoot();
-                    result.RootActivityName = currentRoot?.OperationName;
-
-                    try
-                    {
-                        throw new InvalidOperationException("Intentional smoke exception");
-                    }
-                    catch (Exception ex)
-                    {
-                        child.RecordException(ex);
-                        result.RecordedException = true;
-                    }
+                    throw new InvalidOperationException("Intentional smoke exception");
+                }
+                catch (Exception ex)
+                {
+                    child.RecordException(ex);
+                    result.RecordedException = true;
                 }
             }
 

@@ -91,7 +91,7 @@ namespace GMO.OpenTelemetry
         // otlp.nr-data.net plus the regional and FedRAMP variants; anchoring on the US host alone would
         // fire on every EU or JP tenant.
         private static readonly System.Text.RegularExpressions.Regex NewRelicOtlpHost =
-            new System.Text.RegularExpressions.Regex(
+            new(
                 @"^(gov-)?otlp(\.[a-z0-9-]+)?\.nr-data\.net$",
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase
                     | System.Text.RegularExpressions.RegexOptions.CultureInvariant,

@@ -16,7 +16,7 @@ namespace GMO.OpenTelemetry.Tests
         {
             // Populated via field initializer: OnEventSourceCreated can fire from the base
             // constructor, before any constructor body would have run.
-            private readonly List<EventWrittenEventArgs> _events = new List<EventWrittenEventArgs>();
+            private readonly List<EventWrittenEventArgs> _events = [];
 
             protected override void OnEventSourceCreated(EventSource eventSource)
             {
@@ -33,10 +33,9 @@ namespace GMO.OpenTelemetry.Tests
             {
                 lock (_events)
                 {
-                    return _events.Where(e => e.Payload != null
+                    return [.. _events.Where(e => e.Payload != null
                             && e.Payload.Count > 0
-                            && (e.Payload[0] as string) == component)
-                        .ToList();
+                            && (e.Payload[0] as string) == component)];
                 }
             }
 
@@ -150,14 +149,14 @@ namespace GMO.OpenTelemetry.Tests
             GmoTelemetryEventSource.Log.Degraded(null!, id + "-degraded");
             GmoTelemetryEventSource.Log.Degraded(id + "-degrading", null!);
 
-            Assert.Equal(new object[] { "", id + "-op", "" }, capture.Carrying(id + "-op").Payload);
-            Assert.Equal(new object[] { id + "-failed", "", "detail" }, capture.Carrying(id + "-failed").Payload);
-            Assert.Equal(new object[] { "", 1, id + "-dropped" }, capture.Carrying(id + "-dropped").Payload);
-            Assert.Equal(new object[] { id + "-dropping", 1, "" }, capture.Carrying(id + "-dropping").Payload);
-            Assert.Equal(new object[] { "", 500, id + "-rejected" }, capture.Carrying(id + "-rejected").Payload);
-            Assert.Equal(new object[] { id + "-rejecting", 500, "" }, capture.Carrying(id + "-rejecting").Payload);
-            Assert.Equal(new object[] { "", id + "-degraded" }, capture.Carrying(id + "-degraded").Payload);
-            Assert.Equal(new object[] { id + "-degrading", "" }, capture.Carrying(id + "-degrading").Payload);
+            Assert.Equal(["", id + "-op", ""], capture.Carrying(id + "-op").Payload);
+            Assert.Equal([id + "-failed", "", "detail"], capture.Carrying(id + "-failed").Payload);
+            Assert.Equal(["", 1, id + "-dropped"], capture.Carrying(id + "-dropped").Payload);
+            Assert.Equal([id + "-dropping", 1, ""], capture.Carrying(id + "-dropping").Payload);
+            Assert.Equal(["", 500, id + "-rejected"], capture.Carrying(id + "-rejected").Payload);
+            Assert.Equal([id + "-rejecting", 500, ""], capture.Carrying(id + "-rejecting").Payload);
+            Assert.Equal(["", id + "-degraded"], capture.Carrying(id + "-degraded").Payload);
+            Assert.Equal([id + "-degrading", ""], capture.Carrying(id + "-degrading").Payload);
         }
 
         [Fact]

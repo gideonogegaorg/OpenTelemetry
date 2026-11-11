@@ -28,7 +28,7 @@ namespace GMO.OpenTelemetry.Tests
             GC.SuppressFinalize(this);
         }
 
-        private static ActivityContext RemoteContext() => new ActivityContext(
+        private static ActivityContext RemoteContext() => new(
             ActivityTraceId.CreateRandom(), ActivitySpanId.CreateRandom(), ActivityTraceFlags.Recorded, isRemote: true);
 
         [Fact]

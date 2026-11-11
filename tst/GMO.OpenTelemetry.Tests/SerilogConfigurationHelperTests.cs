@@ -14,7 +14,7 @@ namespace GMO.OpenTelemetry.Tests
         [Fact]
         public void ReadSerilogConfigWithoutSinks_NullLoggerConfig_Throws()
         {
-            var config = BuildConfig(new Dictionary<string, string?>());
+            var config = BuildConfig([]);
             Assert.Throws<ArgumentNullException>(() =>
                 ((LoggerConfiguration)null!).ReadSerilogConfigWithoutSinks(config));
         }
@@ -29,7 +29,7 @@ namespace GMO.OpenTelemetry.Tests
         [Fact]
         public void ReadSerilogConfigWithoutSinks_NoSerilogSection_ReturnsUnchanged()
         {
-            var config = BuildConfig(new Dictionary<string, string?>());
+            var config = BuildConfig([]);
             var lc = new LoggerConfiguration();
             var result = lc.ReadSerilogConfigWithoutSinks(config);
             Assert.Same(lc, result);
@@ -123,11 +123,9 @@ namespace GMO.OpenTelemetry.Tests
             Assert.Equal("42", logEvent.Properties["Pushed"].ToString());
         }
 
-        private sealed class DelegatingSink : global::Serilog.Core.ILogEventSink
+        private sealed class DelegatingSink(Action<LogEvent> write) : global::Serilog.Core.ILogEventSink
         {
-            private readonly Action<LogEvent> _write;
-
-            public DelegatingSink(Action<LogEvent> write) => _write = write;
+            private readonly Action<LogEvent> _write = write;
 
             public void Emit(LogEvent logEvent) => _write(logEvent);
         }

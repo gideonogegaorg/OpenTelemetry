@@ -17,6 +17,7 @@ namespace GMO.OpenTelemetry.Tests
     {
         private readonly ActivitySource _source;
         private readonly ActivityListener _listener;
+        private readonly List<TruncatingSpanProcessor> _processors = [];
 
         public TruncatingSpanProcessorTests()
         {
@@ -29,8 +30,12 @@ namespace GMO.OpenTelemetry.Tests
             ActivitySource.AddActivityListener(_listener);
         }
 
+        // An undisposed processor keeps its consumer loop running and posting after the test ends,
+        // reporting into the process-wide diagnostics other tests assert on.
         public void Dispose()
         {
+            foreach (var processor in _processors)
+                processor.Dispose();
             _listener.Dispose();
             _source.Dispose();
             GC.SuppressFinalize(this);
@@ -51,8 +56,8 @@ namespace GMO.OpenTelemetry.Tests
             opts.Setup(o => o.MaxAttributeValueLength).Returns(maxAttrLen);
             opts.Setup(o => o.MaxLogMessageLength).Returns(maxLogLen);
             opts.Setup(o => o.SendOverflowLogs).Returns(sendOverflow);
-            opts.Setup(o => o.OverflowLogOperations).Returns(new HashSet<string>());
-            opts.Setup(o => o.AdditionalKeysToLog).Returns(new HashSet<string>());
+            opts.Setup(o => o.OverflowLogOperations).Returns([]);
+            opts.Setup(o => o.AdditionalKeysToLog).Returns([]);
             opts.Setup(o => o.ServiceProvider).Returns(OpenTelemetryServiceProvider.NewRelic);
             opts.Setup(o => o.GetApiKey()).Returns("test-api-key");
             opts.Setup(o => o.OverflowChannelCapacity).Returns(100);
@@ -67,11 +72,11 @@ namespace GMO.OpenTelemetry.Tests
                 // Fresh instance per call, as the real AttributeEnricher does. A shared dictionary would
                 // alias every overflow chunk's attributes, hiding per-chunk regressions.
                 m.Setup(e => e.Enrich(It.IsAny<Activity>()))
-                    .Returns(() => new Dictionary<string, object>()));
+                    .Returns(() => []));
 
-        private static TruncatingSpanProcessor BuildProcessor(
+        private TruncatingSpanProcessor BuildProcessor(
             IOpenTelemetryOptions options, IAttributeEnricher enricher) =>
-            new(options, enricher);
+            BuildProcessorWithHandler(options, enricher, BuildOkHandler());
 
         [Fact]
         public void Constructor_Disabled_DoesNotThrow()
@@ -220,7 +225,7 @@ namespace GMO.OpenTelemetry.Tests
         public void OnEnd_WithAdditionalKeysToLog_TruncatesAndMarks()
         {
             var opts = BuildOptions(maxAttrLen: 5, sqlText: true);
-            opts.Setup(o => o.AdditionalKeysToLog).Returns(new HashSet<string> { "custom.key" });
+            opts.Setup(o => o.AdditionalKeysToLog).Returns(["custom.key"]);
             var enricher = BuildEnricher();
             var processor = BuildProcessor(opts.Object, enricher.Object);
             using var activity = _source.StartActivity("Test")!;
@@ -246,7 +251,7 @@ namespace GMO.OpenTelemetry.Tests
             // protobuf encoder or rejects the record outright.
             var value = (string)activity.GetTagItem("custom.tag")!;
             Assert.NotEmpty(value);
-            Assert.False(char.IsHighSurrogate(value[value.Length - 1]),
+            Assert.False(char.IsHighSurrogate(value[^1]),
                 $"truncated tag '{value}' ends with an unpaired high surrogate");
         }
 
@@ -520,9 +525,14 @@ namespace GMO.OpenTelemetry.Tests
             Assert.DoesNotContain(capture.ForComponent(nameof(TruncatingSpanProcessor)), e => (e.Payload![1] as string) == "dispose");
         }
 
-        private static TruncatingSpanProcessor BuildProcessorWithHandler(
-            IOpenTelemetryOptions options, IAttributeEnricher enricher, HttpMessageHandler handler) =>
-            new(options, enricher, handler);
+        // Always a stub handler: the default one posts overflow logs to the live vendor ingest endpoint.
+        private TruncatingSpanProcessor BuildProcessorWithHandler(
+            IOpenTelemetryOptions options, IAttributeEnricher enricher, HttpMessageHandler handler)
+        {
+            var processor = new TruncatingSpanProcessor(options, enricher, handler);
+            _processors.Add(processor);
+            return processor;
+        }
 
         private static MockHttpHandler BuildOkHandler() => new(HttpStatusCode.OK);
 
@@ -581,7 +591,7 @@ namespace GMO.OpenTelemetry.Tests
             enricher.Verify(e => e.Enrich(It.IsAny<Activity>()), Times.AtLeastOnce);
         }
 
-        private static Uri? PostedOverflowUri(string otlpEndpoint)
+        private Uri? PostedOverflowUri(string otlpEndpoint)
         {
             var opts = BuildOptions(maxAttrLen: 5, sqlText: true, maxLogLen: 20);
             opts.Setup(o => o.ServiceProvider).Returns(OpenTelemetryServiceProvider.Dynatrace);
@@ -624,7 +634,7 @@ namespace GMO.OpenTelemetry.Tests
                 PostedOverflowUri("https://mytenant.live.dynatrace.com"));
         }
 
-        private static MockHttpHandler RunOverflow(Mock<IOpenTelemetryOptions> opts, ActivitySource source, out Activity activity)
+        private MockHttpHandler RunOverflow(Mock<IOpenTelemetryOptions> opts, ActivitySource source, out Activity activity)
         {
             opts.Setup(o => o.OverflowBatchSize).Returns(1);
             opts.Setup(o => o.OverflowBatchFlushIntervalMs).Returns(50);
@@ -730,7 +740,7 @@ namespace GMO.OpenTelemetry.Tests
         public void OnEnd_AdditionalKeysToLog_WorksWithSqlDisabled()
         {
             var opts = BuildOptions(maxAttrLen: 5, sqlEnabled: false, sqlText: true);
-            opts.Setup(o => o.AdditionalKeysToLog).Returns(new HashSet<string> { "custom.key" });
+            opts.Setup(o => o.AdditionalKeysToLog).Returns(["custom.key"]);
             var enricher = BuildEnricher();
             var processor = BuildProcessorWithHandler(opts.Object, enricher.Object, BuildOkHandler());
             using var activity = _source.StartActivity("Test")!;
@@ -882,11 +892,11 @@ namespace GMO.OpenTelemetry.Tests
         }
     }
 
-    internal sealed class MockHttpHandler : HttpMessageHandler
+    internal sealed class MockHttpHandler(HttpStatusCode statusCode, bool throwOnSend = false) : HttpMessageHandler
     {
-        private readonly HttpStatusCode _statusCode;
-        private readonly bool _throwOnSend;
-        private readonly List<byte[]> _bodies = new List<byte[]>();
+        private readonly HttpStatusCode _statusCode = statusCode;
+        private readonly bool _throwOnSend = throwOnSend;
+        private readonly List<byte[]> _bodies = [];
         private int _requestCount;
 
         public int RequestCount => _requestCount;
@@ -896,13 +906,7 @@ namespace GMO.OpenTelemetry.Tests
         /// content stream the processor disposes as soon as the post returns.</summary>
         public IReadOnlyList<byte[]> Bodies
         {
-            get { lock (_bodies) return _bodies.ToArray(); }
-        }
-
-        public MockHttpHandler(HttpStatusCode statusCode, bool throwOnSend = false)
-        {
-            _statusCode = statusCode;
-            _throwOnSend = throwOnSend;
+            get { lock (_bodies) return [.. _bodies]; }
         }
 
         protected override Task<HttpResponseMessage> SendAsync(

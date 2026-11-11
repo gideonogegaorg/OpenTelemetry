@@ -164,25 +164,23 @@ namespace GMO.OpenTelemetry
             Func<TWrapper, Task<TResult>> action)
             where TWrapper : ActivityWrapper
         {
-            using (var activity = activityFactory())
+            using var activity = activityFactory();
+            activity.MarkSuccessOnDispose = false;
+            try
             {
-                activity.MarkSuccessOnDispose = false;
-                try
-                {
-                    var result = await action(activity).ConfigureAwait(false);
-                    activity.MarkSucceeded();
-                    return result;
-                }
-                catch (OperationCanceledException)
-                {
-                    activity.AddEvent(CancelledEvent);
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    activity.RecordException(ex);
-                    throw;
-                }
+                var result = await action(activity).ConfigureAwait(false);
+                activity.MarkSucceeded();
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                activity.AddEvent(CancelledEvent);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                activity.RecordException(ex);
+                throw;
             }
         }
 

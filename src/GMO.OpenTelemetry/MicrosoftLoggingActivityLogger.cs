@@ -5,21 +5,12 @@ namespace GMO.OpenTelemetry
     /// <summary>
     /// Microsoft.Extensions.Logging adapter for IActivityLogger interface
     /// </summary>
-    public class MicrosoftLoggingActivityLogger : IActivityLogger
+    /// <param name="logger">The Microsoft.Extensions.Logging.ILogger instance</param>
+    /// <param name="logLevel">The log level to use for activity logging (default: Information)</param>
+    public class MicrosoftLoggingActivityLogger(ILogger logger, LogLevel logLevel = LogLevel.Information) : IActivityLogger
     {
-        private readonly ILogger _logger;
-        private readonly LogLevel _logLevel;
-
-        /// <summary>
-        /// Creates a new MicrosoftLoggingActivityLogger
-        /// </summary>
-        /// <param name="logger">The Microsoft.Extensions.Logging.ILogger instance</param>
-        /// <param name="logLevel">The log level to use for activity logging (default: Information)</param>
-        public MicrosoftLoggingActivityLogger(ILogger logger, LogLevel logLevel = LogLevel.Information)
-        {
-            _logger = logger ?? throw new System.ArgumentNullException(nameof(logger));
-            _logLevel = logLevel;
-        }
+        private readonly ILogger _logger = logger ?? throw new System.ArgumentNullException(nameof(logger));
+        private readonly LogLevel _logLevel = logLevel;
 
         /// <summary>
         /// Logs when an activity starts

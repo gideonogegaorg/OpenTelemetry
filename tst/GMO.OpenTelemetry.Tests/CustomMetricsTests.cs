@@ -89,7 +89,7 @@ namespace GMO.OpenTelemetry.Tests
 
         private sealed class CapturingExporter : BaseExporter<Metric>
         {
-            public List<string> Names { get; } = new List<string>();
+            public List<string> Names { get; } = [];
 
             public override ExportResult Export(in Batch<Metric> batch)
             {
@@ -128,7 +128,7 @@ namespace GMO.OpenTelemetry.Tests
 #if NET9_0_OR_GREATER
         private sealed class TypeCapturingExporter : BaseExporter<Metric>
         {
-            public List<(string Meter, string Name, MetricType Type)> Metrics { get; } = new List<(string, string, MetricType)>();
+            public List<(string Meter, string Name, MetricType Type)> Metrics { get; } = [];
 
             public override ExportResult Export(in Batch<Metric> batch)
             {

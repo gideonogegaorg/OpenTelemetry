@@ -37,14 +37,14 @@ namespace GMO.OpenTelemetry.Tests
 
         private sealed class CollectingProcessor : BaseProcessor<Activity>
         {
-            public ConcurrentBag<string> Names { get; } = new();
+            public ConcurrentBag<string> Names { get; } = [];
 
             public override void OnEnd(Activity data) => Names.Add(data.DisplayName);
         }
 
         private sealed class CollectingMetricExporter : BaseExporter<Metric>
         {
-            public ConcurrentBag<string> Meters { get; } = new();
+            public ConcurrentBag<string> Meters { get; } = [];
 
             public override ExportResult Export(in Batch<Metric> batch)
             {

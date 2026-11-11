@@ -12,7 +12,11 @@ using ILogger = Microsoft.Extensions.Logging.ILogger;
 
 namespace GMO.OpenTelemetry.Log4Net
 {
-    public class OtlpLog4NetAppender : AppenderSkeleton
+    public class OtlpLog4NetAppender(
+        ILoggerFactory loggerFactory,
+        IAttributeEnricher attributeEnricher,
+        IOpenTelemetryOptions openTelemetryOptions,
+        string? categoryName = null) : AppenderSkeleton
     {
         // Exactly what this appender exports. Not FixFlags.All: that adds UserName, which resolves a
         // WindowsIdentity per event and is never read here.
@@ -21,21 +25,9 @@ namespace GMO.OpenTelemetry.Log4Net
 
         private static readonly JsonSerializerOptions SerializerOptions = CreateSerializerOptions();
 
-        private readonly ILogger _logger;
-        private readonly IAttributeEnricher _attributeEnricher;
-        private readonly IOpenTelemetryOptions _openTelemetryOptions;
-
-        public OtlpLog4NetAppender(
-            ILoggerFactory loggerFactory,
-            IAttributeEnricher attributeEnricher,
-            IOpenTelemetryOptions openTelemetryOptions,
-            string? categoryName = null)
-        {
-            _logger = loggerFactory
-                    .CreateLogger(categoryName ?? typeof(OtlpLog4NetAppender).FullName!);
-            _attributeEnricher = attributeEnricher;
-            _openTelemetryOptions = openTelemetryOptions;
-        }
+        private readonly ILogger _logger = loggerFactory.CreateLogger(categoryName ?? typeof(OtlpLog4NetAppender).FullName!);
+        private readonly IAttributeEnricher _attributeEnricher = attributeEnricher;
+        private readonly IOpenTelemetryOptions _openTelemetryOptions = openTelemetryOptions;
 
         protected override void Append(LoggingEvent loggingEvent)
         {
@@ -126,7 +118,7 @@ namespace GMO.OpenTelemetry.Log4Net
             if (serialized == null || budget <= 0) return null;
             if (serialized.Length <= budget) return serialized;
 
-            return serialized.Substring(0, LogMessageChunker.FirstChunkLength(serialized, budget));
+            return serialized[..LogMessageChunker.FirstChunkLength(serialized, budget)];
         }
 
         private static string? SerializeMessageObjectCore(LoggingEvent loggingEvent)
@@ -180,7 +172,7 @@ namespace GMO.OpenTelemetry.Log4Net
             }
         }
 
-        private static JsonSerializerOptions CreateSerializerOptions() => new JsonSerializerOptions
+        private static JsonSerializerOptions CreateSerializerOptions() => new()
         {
             ReferenceHandler = ReferenceHandler.IgnoreCycles,
             MaxDepth = 4,
@@ -190,18 +182,11 @@ namespace GMO.OpenTelemetry.Log4Net
             },
         };
 
-        private readonly struct ChunkPosition
+        private readonly struct ChunkPosition(int index, int count, string? id)
         {
-            public ChunkPosition(int index, int count, string? id)
-            {
-                Index = index;
-                Count = count;
-                Id = id;
-            }
-
-            public int Index { get; }
-            public int Count { get; }
-            public string? Id { get; }
+            public int Index { get; } = index;
+            public int Count { get; } = count;
+            public string? Id { get; } = id;
         }
 
         private void EmitChunk(string chunk, LogLevel logLevel, LoggingEvent loggingEvent, ChunkPosition position,
@@ -210,20 +195,20 @@ namespace GMO.OpenTelemetry.Log4Net
             var chunkIndex = position.Index;
             var totalChunks = position.Count;
             var chunkId = position.Id;
-            var state = _attributeEnricher.Enrich() ?? new Dictionary<string, object>();
+            var state = _attributeEnricher.Enrich() ?? [];
 
             state["level"] = loggingEvent.Level?.Name ?? string.Empty;
             state["logger.name"] = loggingEvent.LoggerName ?? string.Empty;
 
-            if (!string.IsNullOrEmpty(loggingEvent.ThreadName))
-                state["thread.name"] = loggingEvent.ThreadName!;
+            if (!Strings.IsNullOrEmpty(loggingEvent.ThreadName))
+                state["thread.name"] = loggingEvent.ThreadName;
 
             if (messageObject != null)
                 state["messageObject"] = messageObject;
 
             var isLastChunk = chunkIndex == totalChunks - 1;
-            if (isLastChunk && !string.IsNullOrEmpty(exceptionText))
-                state["exception"] = exceptionText!;
+            if (isLastChunk && !Strings.IsNullOrEmpty(exceptionText))
+                state["exception"] = exceptionText;
 
             AddLocationInformation(state, loggingEvent.LocationInformation);
             AddLog4NetProperties(state, loggingEvent, chunkIndex == 0, _openTelemetryOptions);
@@ -298,14 +283,14 @@ namespace GMO.OpenTelemetry.Log4Net
         {
             if (locationInfo == null) return;
 
-            if (!string.IsNullOrEmpty(locationInfo.ClassName))
-                state["source.class"] = locationInfo.ClassName!;
-            if (!string.IsNullOrEmpty(locationInfo.MethodName))
-                state["source.method"] = locationInfo.MethodName!;
-            if (!string.IsNullOrEmpty(locationInfo.FileName))
-                state["source.file"] = locationInfo.FileName!;
-            if (!string.IsNullOrEmpty(locationInfo.LineNumber))
-                state["source.line"] = locationInfo.LineNumber!;
+            if (!Strings.IsNullOrEmpty(locationInfo.ClassName))
+                state["source.class"] = locationInfo.ClassName;
+            if (!Strings.IsNullOrEmpty(locationInfo.MethodName))
+                state["source.method"] = locationInfo.MethodName;
+            if (!Strings.IsNullOrEmpty(locationInfo.FileName))
+                state["source.file"] = locationInfo.FileName;
+            if (!Strings.IsNullOrEmpty(locationInfo.LineNumber))
+                state["source.line"] = locationInfo.LineNumber;
         }
 
         // Chunks after the first carry only short values: every chunk copying a large one multiplies it
@@ -314,11 +299,11 @@ namespace GMO.OpenTelemetry.Log4Net
         private static void AddLog4NetProperties(Dictionary<string, object> state, LoggingEvent loggingEvent,
                 bool firstChunk, IOpenTelemetryOptions options)
         {
-            if (!string.IsNullOrEmpty(loggingEvent.Identity))
-                state["user.identity"] = loggingEvent.Identity!;
+            if (!Strings.IsNullOrEmpty(loggingEvent.Identity))
+                state["user.identity"] = loggingEvent.Identity;
 
-            if (!string.IsNullOrEmpty(loggingEvent.Domain))
-                state["app.domain"] = loggingEvent.Domain!;
+            if (!Strings.IsNullOrEmpty(loggingEvent.Domain))
+                state["app.domain"] = loggingEvent.Domain;
 
             if (loggingEvent.Properties == null || loggingEvent.Properties.Count <= 0) return;
 
@@ -334,7 +319,7 @@ namespace GMO.OpenTelemetry.Log4Net
                 if (!firstChunk && value.Length > NewRelicLogLimits.ChunkContextValueLength)
                     continue;
                 if (options.MaxLogMessageLength > 0 && value.Length > options.MaxLogMessageLength && options.MaxAttributeValueLength > 0)
-                    value = value.Substring(0, LogMessageChunker.FirstChunkLength(value, options.MaxAttributeValueLength));
+                    value = value[..LogMessageChunker.FirstChunkLength(value, options.MaxAttributeValueLength)];
 
                 state[$"property.{key}"] = value;
             }

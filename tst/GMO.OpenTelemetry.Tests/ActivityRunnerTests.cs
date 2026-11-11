@@ -199,7 +199,7 @@ namespace GMO.OpenTelemetry.Tests
             var link = new ActivityLink(other.Context);
 
             using var span = ActivityRunner.For(_source)
-                .Begin("op", new ActivityOptions { Links = new[] { link } });
+                .Begin("op", new ActivityOptions { Links = [link] });
 
             Assert.Contains(span.Activity!.Links, l => l.Context == other.Context);
         }
@@ -222,7 +222,7 @@ namespace GMO.OpenTelemetry.Tests
                 ParentContext = linked.Context,
                 ActivityKind = ActivityKind.Consumer,
                 MarkSuccessOnDispose = false,
-                Links = new[] { new ActivityLink(linked.Context) },
+                Links = [new ActivityLink(linked.Context)],
             };
 
             var settable = typeof(ActivityOptions)
@@ -252,7 +252,7 @@ namespace GMO.OpenTelemetry.Tests
         {
             var merge = typeof(ActivityRunner).GetMethod("Merge",
                 BindingFlags.NonPublic | BindingFlags.Instance)!;
-            return (ActivityOptions)merge.Invoke(runner, new object?[] { overrides })!;
+            return (ActivityOptions)merge.Invoke(runner, [overrides])!;
         }
 
         #endregion
@@ -371,7 +371,7 @@ namespace GMO.OpenTelemetry.Tests
         {
             using var bound = _source.StartActivity("bound")!;
             using var added = _source.StartActivity("added")!;
-            var links = new List<ActivityLink> { new ActivityLink(bound.Context) };
+            var links = new List<ActivityLink> { new(bound.Context) };
             var runner = ActivityRunner.For(_source).WithDefaults(new ActivityOptions { Links = links });
             links.Add(new ActivityLink(added.Context));
 
